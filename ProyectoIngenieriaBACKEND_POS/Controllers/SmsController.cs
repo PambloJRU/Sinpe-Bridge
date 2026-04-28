@@ -19,21 +19,36 @@ namespace ProyectoIngenieriaBACKEND_POS.Controllers
         public async Task<IActionResult> ReceiveSms([FromBody] SmsRequestDTO incomingSms)
         {
             
-            if (incomingSms == null || string.IsNullOrWhiteSpace(incomingSms.MessageBody))
+            if (incomingSms == null)
             {
                 return BadRequest(new { message = "La información del SMS es inválida o está vacía." });
+            }
+
+            if (string.IsNullOrWhiteSpace(incomingSms.SenderNumber))
+            {
+                return BadRequest(new { message = "El número de origen del SMS es inválido o está vacío." });
+            }
+
+            if (string.IsNullOrWhiteSpace(incomingSms.MessageBody))
+            {
+                return BadRequest(new { message = "El contenido del SMS es inválido o está vacío." });
+            }
+
+            if (incomingSms.ReceivedAt == default)
+            {
+                return BadRequest(new { message = "La fecha de recepción del SMS es inválida." });
             }
 
             // Procesar el mensaje a través del servicio
             var result = await _smsReceiverService.ProcessIncomingSmsAsync(incomingSms);
 
-            if (result)
+            if (result == null)
             {
-                // Devolvemos un 200 OK para que Kotlin sepa que todo salió bien
-                return Ok(new { message = "SMS recibido y procesado correctamente en el servidor." });
+                return BadRequest(new { message = "El SMS no coincide con el formato esperado." });
             }
 
-            return StatusCode(500, new { message = "Error interno procesando el SMS." });
+            // Devolvemos un 200 OK para que Kotlin sepa que todo salió bien
+            return Ok(new { message = "SMS recibido y procesado correctamente en el servidor.", data = result });
         }
 
         [HttpGet("testjson")]
