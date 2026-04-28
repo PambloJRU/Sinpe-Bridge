@@ -78,10 +78,12 @@ class MainActivity : ComponentActivity() {
     private fun enviarPruebaAlServidor() {
         // 1. Creamos un objeto de prueba con el formato que espera tu C#
         val smsPrueba = SmsRequest(
-            senderNumber = "2627", // Número típico de notificaciones BCCR
+            senderNumber = "2627-3342", // Número típico de notificaciones BCCR
             messageBody = "SINPE Movil: Ha recibido una transferencia de PABLO RAMIREZ por 1500 colones. Ref: 20240510123456789012345.",
             receivedAt = "2026-04-23T10:30:00Z" // Formato ISO para DateTime de .NET
         )
+
+        //CON EL MENSAJE, CONSTRUIR EL "smsPrueba" aqui
 
         // 2. Ejecutamos la petición en una corrutina (hilo secundario)
         lifecycleScope.launch {

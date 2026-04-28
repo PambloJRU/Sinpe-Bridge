@@ -15,6 +15,7 @@ namespace ProyectoIngenieriaBACKEND_POS.Controllers
             _smsReceiverService = smsReceiverService;
         }
 
+        //AQUI VIENE EL MENSAJE EN "CRUDO" CONSTRUIDO DESDE EL SMS RECEIBER DE KOTLIN
         [HttpPost("receive")]
         public async Task<IActionResult> ReceiveSms([FromBody] SmsRequestDTO incomingSms)
         {
@@ -24,7 +25,7 @@ namespace ProyectoIngenieriaBACKEND_POS.Controllers
                 return BadRequest(new { message = "La información del SMS es inválida o está vacía." });
             }
 
-            // Procesar el mensaje a través del servicio
+            // Procesar el mensaje a través del servicio - VALIDAR - 
             var result = await _smsReceiverService.ProcessIncomingSmsAsync(incomingSms);
 
             if (result)
