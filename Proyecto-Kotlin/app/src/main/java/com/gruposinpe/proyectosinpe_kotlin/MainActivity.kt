@@ -25,6 +25,7 @@ import okhttp3.ResponseBody
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import android.util.Log
+import android.widget.Toast
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
@@ -33,11 +34,16 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.gruposinpe.proyectosinpe_kotlin.model.SmsRequest
 import com.gruposinpe.proyectosinpe_kotlin.network.RetrofitClient
+import com.gruposinpe.proyectosinpe_kotlin.receiver.SmsReceiver
+import com.gruposinpe.proyectosinpe_kotlin.receiver.SmsReceiverCallback
 
 
-class MainActivity : ComponentActivity() {
+class MainActivity : ComponentActivity(), SmsReceiverCallback {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        //Avisa cuando llega un mensaje
+        SmsReceiver.callback = this
 
         requestSmsPermission()
 
@@ -73,6 +79,13 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+    }
+
+    //Acá se recibe el sms real, ya construido
+    override fun onSmsReceived(smsRequest: SmsRequest) {
+        Log.d("SMS_LLEGÓ", "SMS RECIBIDO: $smsRequest")
+        //acá llamar al metodo para enviar el sms
+        //enviarPruebaAlServidor(smsRequest)
     }
 
     private fun enviarPruebaAlServidor() {

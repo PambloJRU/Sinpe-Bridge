@@ -8,11 +8,16 @@ import android.os.Bundle
 import android.telephony.SmsMessage
 import android.util.Log
 import android.widget.Toast
+import com.gruposinpe.proyectosinpe_kotlin.model.SmsRequest
+import java.time.Instant
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
 
 class SmsReceiver : BroadcastReceiver() {
 
     companion object{
         private const val TAG = "SmsReceiver"
+        var callback: SmsReceiverCallback? = null
     }
 
     override fun onReceive(context: Context?, intent: Intent?) {
@@ -23,16 +28,20 @@ class SmsReceiver : BroadcastReceiver() {
                 try{
                     val pdus = bundle.get("pdus") as Array<*>
 
-                    for(pdu in pdus){
-                        val smsMessage: SmsMessage = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M){
-                            val format = bundle.getString("format")
-                            SmsMessage.createFromPdu(pdu as ByteArray, format)
-                        }else{
-                            SmsMessage.createFromPdu(pdu as ByteArray)
-                        }
+                    for(pdu in pdus) {
+                        val smsMessage: SmsMessage =
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                                val format = bundle.getString("format")
+                                SmsMessage.createFromPdu(pdu as ByteArray, format)
+                            } else {
+                                SmsMessage.createFromPdu(pdu as ByteArray)
+                            }
 
-                        val sender = smsMessage.originatingAddress ?: ""
+                        val sender = smsMessage.originatingAddress ?: "Desconocido"
                         val message = smsMessage.messageBody ?: ""
+                        val timestamp = smsMessage.timestampMillis
+
+                        val receivedAt = convertTimestampToISO(timestamp)
 
                         Log.d(TAG, "Origen: $sender")
                         Log.d(TAG, "Mensaje: $message")
@@ -47,11 +56,30 @@ class SmsReceiver : BroadcastReceiver() {
                             }
                         }
 
+                        val smsRequest = SmsRequest(
+                            senderNumber = sender,
+                            messageBody = message,
+                            receivedAt = receivedAt
+                        )
+
+                        //aca se envía el sms al mainActivity
+                        callback?.onSmsReceived(smsRequest)
                     }
                 } catch(e: Exception){
                     Log.e(TAG, "Error: ${e.message}")
                 }
             }
+        }
+    }
+
+    private fun convertTimestampToISO(timestamp: Long): String {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val instant = Instant.ofEpochMilli(timestamp)
+            DateTimeFormatter.ISO_INSTANT.format(instant)
+        } else {
+            java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'").apply {
+                timeZone = java.util.TimeZone.getTimeZone("UTC")
+            }.format(java.util.Date(timestamp))
         }
     }
 }
