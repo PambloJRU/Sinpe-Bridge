@@ -1,5 +1,7 @@
 using ProyectoIngenieriaBACKEND_POS.Services;
 using ProyectoIngenieriaBACKEND_POS.Services.Interfaces;
+using Microsoft.EntityFrameworkCore;
+using ProyectoIngenieriaBACKEND_POS.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,9 +19,8 @@ builder.Services.AddScoped<ISmsReceiverService, SmsReceiverService>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-
-
-
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("StringSQL")));
 
 
 
