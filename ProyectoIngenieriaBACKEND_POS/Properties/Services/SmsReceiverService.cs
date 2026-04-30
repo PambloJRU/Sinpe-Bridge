@@ -5,6 +5,7 @@ using System.Text.RegularExpressions;
 using ProyectoIngenieriaBACKEND_POS.Data;
 using ProyectoIngenieriaBACKEND_POS.Models.Entities;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Cryptography.Xml;
 
 namespace ProyectoIngenieriaBACKEND_POS.Services
 {
@@ -42,6 +43,13 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
                 PayerName = match.Groups["payer"].Value.Trim(),
                 Reference = match.Groups["reference"].Value.Trim()
             };
+
+            //HISTORIA 03 TAREA 01
+
+            if (result.Reference != null && await _context.Payments.AnyAsync(r => r.Reference == result.Reference) == true )
+            {
+                throw new InvalidOperationException("DUPLICATE_REFERENCE");
+            }
 
             var client = await _context.Clients
             .FirstOrDefaultAsync(c => c.Phone == smsData.SenderNumber);

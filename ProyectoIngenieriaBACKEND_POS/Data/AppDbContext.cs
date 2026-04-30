@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using ProyectoIngenieriaBACKEND_POS.Models.Entities;
 
 namespace ProyectoIngenieriaBACKEND_POS.Data

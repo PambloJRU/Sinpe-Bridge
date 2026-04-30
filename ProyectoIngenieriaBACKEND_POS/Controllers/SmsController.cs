@@ -41,16 +41,22 @@ namespace ProyectoIngenieriaBACKEND_POS.Controllers
                 return BadRequest(new { message = "La fecha de recepción del SMS es inválida." });
             }
 
-            // Procesar el mensaje a través del servicio
-            var result = await _smsReceiverService.ProcessIncomingSmsAsync(incomingSms);
-
-            if (result == null)
+            try
             {
-                return BadRequest(new { message = "El SMS no coincide con el formato esperado." });
-            }
+                var result = await _smsReceiverService.ProcessIncomingSmsAsync(incomingSms);
 
-            // Devolvemos un 200 OK para que Kotlin sepa que todo salió bien
-            return Ok(new { message = "SMS recibido y procesado correctamente en el servidor.", data = result });
+                if (result == null)
+                {
+                    return BadRequest(new { message = "El SMS no coincide con el formato esperado." });
+                }
+
+                return Ok(new { message = "SMS recibido y procesado correctamente.", data = result });
+            }
+            catch (InvalidOperationException ex) when (ex.Message == "DUPLICATE_REFERENCE")
+            {
+                // se devuelve 409 Conflict
+                return Conflict(new { message = "Error: Este número de referencia ya fue registrado previamente." });
+            }
         }
 
         [HttpGet("testjson")]
