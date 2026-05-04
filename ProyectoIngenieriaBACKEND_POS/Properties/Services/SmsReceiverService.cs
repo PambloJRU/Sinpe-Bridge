@@ -5,7 +5,6 @@ using System.Text.RegularExpressions;
 using ProyectoIngenieriaBACKEND_POS.Data;
 using ProyectoIngenieriaBACKEND_POS.Models.Entities;
 using Microsoft.EntityFrameworkCore;
-using System.Security.Cryptography.Xml;
 
 namespace ProyectoIngenieriaBACKEND_POS.Services
 {
@@ -24,11 +23,11 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
 
         public async Task<ParsedSmsResult?> ProcessIncomingSmsAsync(SmsRequestDTO smsData)
         {
-           
             if (string.IsNullOrWhiteSpace(smsData.MessageBody))
                 return null;
 
             var match = SinpeSmsRegex.Match(smsData.MessageBody.Trim());
+
             if (!match.Success)
                 return null;
 
@@ -44,15 +43,24 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
                 Reference = match.Groups["reference"].Value.Trim()
             };
 
-            //HISTORIA 03 TAREA 01
+            result.PaymentDateTime = ExtractPaymentDateTime(result.Reference);
 
-            if (result.Reference != null && await _context.Payments.AnyAsync(r => r.Reference == result.Reference) == true )
+            // HISTORIA 04
+            var paymentDateTime = ExtractPaymentDateTime(result.Reference);
+
+            if (!IsPaymentWithin15Minutes(result.PaymentDateTime))
+            {
+                throw new InvalidOperationException("PAYMENT_EXPIRED");
+            }
+
+            // HISTORIA 03
+            if (await _context.Payments.AnyAsync(r => r.Reference == result.Reference))
             {
                 throw new InvalidOperationException("DUPLICATE_REFERENCE");
             }
 
             var client = await _context.Clients
-            .FirstOrDefaultAsync(c => c.Phone == smsData.SenderNumber);
+                .FirstOrDefaultAsync(c => c.Phone == smsData.SenderNumber);
 
             if (client == null)
             {
@@ -65,6 +73,7 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
                 _context.Clients.Add(client);
                 await _context.SaveChangesAsync();
             }
+
             var payment = new Payment
             {
                 ClientId = client.Id,
@@ -83,11 +92,35 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
         private static bool TryParseAmount(string amountText, out decimal amount)
         {
             var normalized = amountText.Replace(',', '.');
+
             return decimal.TryParse(
                 normalized,
                 NumberStyles.Number,
                 CultureInfo.InvariantCulture,
                 out amount);
+        }
+
+        private static DateTime ExtractPaymentDateTime(string reference)
+        {
+            if (reference.Length < 14)
+                throw new InvalidOperationException("INVALID_REFERENCE_FORMAT");
+
+            var datePart = reference.Substring(0, 14);
+
+            return DateTime.ParseExact(
+                datePart,
+                "yyyyMMddHHmmss",
+                CultureInfo.InvariantCulture
+            );
+        }
+
+        private static bool IsPaymentWithin15Minutes(DateTime paymentDateTime)
+        {
+            var currentTime = DateTime.Now;
+            var difference = currentTime - paymentDateTime;
+
+            return difference.TotalMinutes >= 0 &&
+                   difference.TotalMinutes <= 15;
         }
     }
 }

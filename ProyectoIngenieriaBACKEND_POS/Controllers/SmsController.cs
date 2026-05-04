@@ -15,17 +15,15 @@ namespace ProyectoIngenieriaBACKEND_POS.Controllers
             _smsReceiverService = smsReceiverService;
         }
 
-        //AQUI VIENE EL MENSAJE EN "CRUDO" CONSTRUIDO DESDE EL SMS RECEIBER DE KOTLIN
+        // AQUÍ VIENE EL MENSAJE EN "CRUDO" CONSTRUIDO DESDE EL SMS RECEIVER DE KOTLIN
         [HttpPost("receive")]
         public async Task<IActionResult> ReceiveSms([FromBody] SmsRequestDTO incomingSms)
         {
-            
             if (incomingSms == null)
             {
                 return BadRequest(new { message = "La información del SMS es inválida o está vacía." });
             }
 
-            // Procesar el mensaje a través del servicio - VALIDAR - 
             if (string.IsNullOrWhiteSpace(incomingSms.SenderNumber))
             {
                 return BadRequest(new { message = "El número de origen del SMS es inválido o está vacío." });
@@ -50,17 +48,30 @@ namespace ProyectoIngenieriaBACKEND_POS.Controllers
                     return BadRequest(new { message = "El SMS no coincide con el formato esperado." });
                 }
 
-                return Ok(new { message = "SMS recibido y procesado correctamente.", data = result });
+                return Ok(new
+                {
+                    message = "SMS recibido y procesado correctamente.",
+                    data = result
+                });
             }
             catch (InvalidOperationException ex) when (ex.Message == "DUPLICATE_REFERENCE")
             {
-                // se devuelve 409 Conflict
-                return Conflict(new { message = "Error: Este número de referencia ya fue registrado previamente." });
+                return Conflict(new
+                {
+                    message = "Error: Este número de referencia ya fue registrado previamente."
+                });
+            }
+            catch (InvalidOperationException ex) when (ex.Message == "PAYMENT_EXPIRED")
+            {
+                return BadRequest(new
+                {
+                    message = "Pago rechazado. Han pasado más de 15 minutos desde que fue realizado."
+                });
             }
         }
 
         [HttpGet("testjson")]
-        public async Task<IActionResult> TestJson()
+        public IActionResult TestJson()
         {
             return Ok(new { mensaje = "hola" });
         }
