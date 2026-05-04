@@ -43,7 +43,7 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
                 Reference = match.Groups["reference"].Value.Trim()
             };
 
-            result.PaymentDateTime = ExtractPaymentDateTime(result.Reference);
+
 
             // HISTORIA 04
             var paymentDateTime = ExtractPaymentDateTime(result.Reference);
@@ -53,9 +53,21 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
                 throw new InvalidOperationException("PAYMENT_EXPIRED");
             }
 
-            // HISTORIA 03
+            //HISTORIA 03 TAREA 01,02 y 03
             if (await _context.Payments.AnyAsync(r => r.Reference == result.Reference))
             {
+                var clientTemp =  _context.Clients.FirstOrDefault(c => c.Phone == smsData.SenderNumber);
+
+                DuplecateReference dupe = new DuplecateReference
+                {
+                    Cellphone = smsData.SenderNumber,
+                    IdClient = clientTemp?.Id
+
+                };
+
+                _context.DuplecateReferences.Add(dupe);
+                await _context.SaveChangesAsync();
+
                 throw new InvalidOperationException("DUPLICATE_REFERENCE");
             }
 

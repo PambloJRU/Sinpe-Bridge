@@ -1,21 +1,21 @@
-using System.ComponentModel.DataAnnotations;
+﻿using System;
+using System.Collections.Generic;
 
-namespace ProyectoIngenieriaBACKEND_POS.Models.Entities
+namespace ProyectoIngenieriaBACKEND_POS.Models.Entities;
+
+public partial class Payment
 {
-    public class Payment
-    {
-        public int Id { get; set; }
+    public int Id { get; set; }
 
-        public int ClientId { get; set; }
+    public decimal Amount { get; set; }
 
-        public Client Client { get; set; } = null!;
+    public string Reference { get; set; } = null!;
 
-        public decimal Amount { get; set; }
+    public DateTime ReceivedAt { get; set; }
 
-        public string Reference { get; set; } = string.Empty;
+    public string OriginalMessage { get; set; } = null!;
 
-        public DateTime ReceivedAt { get; set; }
+    public int ClientId { get; set; }
 
-        public string OriginalMessage { get; set; } = string.Empty;
-    }
+    public virtual Client Client { get; set; } = null!;
 }
