@@ -44,10 +44,22 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
                 Reference = match.Groups["reference"].Value.Trim()
             };
 
-            //HISTORIA 03 TAREA 01
+            //HISTORIA 03 TAREA 01,02 y 03
 
             if (result.Reference != null && await _context.Payments.AnyAsync(r => r.Reference == result.Reference) == true )
             {
+                var clientTemp =  _context.Clients.FirstOrDefault(c => c.Phone == smsData.SenderNumber);
+
+                DuplecateReference dupe = new DuplecateReference
+                {
+                    Cellphone = smsData.SenderNumber,
+                    IdClient = clientTemp?.Id
+
+                };
+
+                _context.DuplecateReferences.Add(dupe);
+                await _context.SaveChangesAsync();
+
                 throw new InvalidOperationException("DUPLICATE_REFERENCE");
             }
 
