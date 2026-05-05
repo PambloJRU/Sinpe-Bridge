@@ -43,7 +43,7 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
                 Reference = match.Groups["reference"].Value.Trim()
             };
 
-
+            result.PaymentDateTime = ExtractPaymentDateTime(result.Reference);
 
             // HISTORIA 04
             var paymentDateTime = ExtractPaymentDateTime(result.Reference);
