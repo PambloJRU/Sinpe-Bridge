@@ -85,14 +85,31 @@ class MainActivity : ComponentActivity(), SmsReceiverCallback {
     override fun onSmsReceived(smsRequest: SmsRequest) {
         Log.d("SMS_LLEGÓ", "SMS RECIBIDO: $smsRequest")
         //acá llamar al metodo para enviar el sms
-        //enviarPruebaAlServidor(smsRequest)
+        enviarSmsAlServidor(smsRequest)
+    }
+
+    //Con este metodo enviamos el SMS real al back
+    private fun enviarSmsAlServidor(smsRequest: SmsRequest) {
+        lifecycleScope.launch {
+            try {
+                val response = RetrofitClient.instance.enviarSmsAlServidor(smsRequest)
+
+                if (response.isSuccessful) {
+                    Log.d("SINPE_BRIDGE", "¡SMS REAL enviado a .NET!")
+                } else {
+                    Log.e("SINPE_BRIDGE", "Error: ${response.code()}")
+                }
+            } catch (e: Exception) {
+                Log.e("SINPE_BRIDGE", "Error de conexión: ${e.message}")
+            }
+        }
     }
 
     private fun enviarPruebaAlServidor() {
         // 1. Creamos un objeto de prueba con el formato que espera tu C#
         val smsPrueba = SmsRequest(
             senderNumber = "2627-3342", // Número típico de notificaciones BCCR
-            messageBody = "SINPE Movil: Ha recibido una transferencia de PABLO RAMIREZ por 1500 colones. Ref: 20240510123456789012345.",
+            messageBody = "SINPE Movil: Ha recibido una transferencia de PABLO RAMIREZ por 1500 colones. Ref: 20245110123456789012345.",
             receivedAt = "2026-04-23T10:30:00Z" // Formato ISO para DateTime de .NET
         )
 
