@@ -12,4 +12,4 @@ public partial class DuplecateReference
     public int? IdClient { get; set; }
 
     public virtual Client? IdClientNavigation { get; set; }
-} 
+}

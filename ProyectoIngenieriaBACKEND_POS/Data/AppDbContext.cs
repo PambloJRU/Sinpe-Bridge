@@ -20,6 +20,8 @@ public partial class AppDbContext : DbContext
 
     public virtual DbSet<DuplecateReference> DuplecateReferences { get; set; }
 
+    public virtual DbSet<Order> Orders { get; set; }
+
     public virtual DbSet<Payment> Payments { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
@@ -36,6 +38,19 @@ public partial class AppDbContext : DbContext
             entity.HasOne(d => d.IdClientNavigation).WithMany(p => p.DuplecateReferences)
                 .HasForeignKey(d => d.IdClient)
                 .HasConstraintName("FK_DuplecateReferences_Clients");
+        });
+
+        modelBuilder.Entity<Order>(entity =>
+        {
+            entity.Property(e => e.Amount).HasColumnType("decimal(18, 2)");
+            entity.Property(e => e.Phone).HasMaxLength(50);
+            entity.Property(e => e.State)
+                .HasMaxLength(50)
+                .HasDefaultValue("PENDIENTE", "DEFAULT_Orders_State");
+
+            entity.HasOne(d => d.Payment).WithMany(p => p.Orders)
+                .HasForeignKey(d => d.PaymentId)
+                .HasConstraintName("FK_Orders_Payments");
         });
 
         modelBuilder.Entity<Payment>(entity =>
