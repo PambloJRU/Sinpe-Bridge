@@ -1,7 +1,7 @@
-using ProyectoIngenieriaBACKEND_POS.Services;
 using ProyectoIngenieriaBACKEND_POS.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using ProyectoIngenieriaBACKEND_POS.Data;
+using ProyectoIngenieriaBACKEND_POS.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,6 +16,7 @@ builder.Services.AddOpenApi();
 
 //ESPACIOS PARA AGREGAR SERVICIOS
 builder.Services.AddScoped<ISmsReceiverService, SmsReceiverService>();
+builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
