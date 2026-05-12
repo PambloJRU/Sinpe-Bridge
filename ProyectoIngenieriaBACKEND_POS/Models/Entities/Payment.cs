@@ -19,5 +19,9 @@ public partial class Payment
     public int ClientId { get; set; }
     public PaymentStatus Status { get; set; } = PaymentStatus.Pending;
 
+    //public int Status { get; set; }
+
     public virtual Client Client { get; set; } = null!;
+
+    public virtual ICollection<Order> Orders { get; set; } = new List<Order>();
 }
