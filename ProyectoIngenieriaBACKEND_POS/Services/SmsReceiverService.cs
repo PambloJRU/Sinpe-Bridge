@@ -134,5 +134,10 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
             return difference.TotalMinutes >= 0 &&
                    difference.TotalMinutes <= 15;
         }
+
+        public async Task<List<Payment>> GetAllAsync()
+        {
+            return await _context.Payments.ToListAsync();
+        }
     }
 }

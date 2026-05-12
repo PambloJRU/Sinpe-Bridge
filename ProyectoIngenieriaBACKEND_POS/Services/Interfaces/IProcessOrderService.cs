@@ -10,5 +10,7 @@ namespace ProyectoIngenieriaBACKEND_POS.Services.Interfaces
         /// <param name="orderDto">Los datos de la orden enviados desde el POS (React).</param>
         /// <returns>La entidad Order creada con su Id asignado.</returns>
         Task<Order> CreateOrderAsync(OrderCreateDTO orderDto);
+        Task<List<Order>> GetAllAsync();
+        Task <bool> AssociateOrderWithPayment(int orderId); 
     }
 }

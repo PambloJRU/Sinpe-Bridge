@@ -19,7 +19,7 @@ public partial class Payment
     public int ClientId { get; set; }
     public PaymentStatus Status { get; set; } = PaymentStatus.Pending;
 
-    public int Status { get; set; }
+    //public int Status { get; set; }
 
     public virtual Client Client { get; set; } = null!;
 

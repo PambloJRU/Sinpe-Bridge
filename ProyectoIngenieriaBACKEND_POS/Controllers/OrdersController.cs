@@ -15,9 +15,29 @@ namespace ProyectoIngenieriaBACKEND_POS.Controllers
             _orderService = orderService;
         }
 
+        [HttpGet]
+        public async Task<IActionResult> GetAll() {
+            var result = await _orderService.GetAllAsync();
+            return Ok(result);
+        }
 
-
-        // ola joshua aqui van tus 2 tareas creo
-        // 
+        [HttpPost]
+        public async Task<IActionResult> CreateOrder(OrderCreateDTO dto)
+        {
+            try
+            {
+                var order = await _orderService.CreateOrderAsync(dto);
+                await _orderService.AssociateOrderWithPayment(order.Id); //luego de crear la orden, buscamos un pago durante 5 minutos
+                return Ok("orden creada y asociada");
+            }
+            catch (TimeoutException ex)
+            {
+                return BadRequest("Pago no recibido dentro del tiempo límite");
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
     }
 }
