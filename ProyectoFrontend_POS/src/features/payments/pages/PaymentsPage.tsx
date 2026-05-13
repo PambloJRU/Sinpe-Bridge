@@ -1,6 +1,7 @@
 import { useMemo, useState, type FormEvent } from 'react'
 
 type PaymentStatus = 'Pending' | 'Valid' | 'Rejected'
+type SyncState = 'idle' | 'syncing' | 'failed'
 
 type Payment = {
 	id: number
@@ -8,6 +9,8 @@ type Payment = {
 	phone: string
 	reference: string
 	status: PaymentStatus
+	syncState: SyncState
+	syncMessage?: string
 }
 
 const formatAmount = (value: number) =>
@@ -34,6 +37,16 @@ const statusLabels: Record<PaymentStatus, string> = {
 }
 
 const referencePlaceholder = 'Esperando SMS'
+const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined) ??
+	'http://localhost:5198'
+const ordersEndpoint = `${apiBaseUrl.replace(/\/$/, '')}/api/Orders`
+
+const getReferenceLabel = (payment: Payment) => {
+	if (payment.reference) return payment.reference
+	if (payment.status === 'Valid') return 'Asociada'
+	if (payment.status === 'Rejected') return 'No recibida'
+	return referencePlaceholder
+}
 
 function PaymentsPage() {
 	const [payments, setPayments] = useState<Payment[]>([])
@@ -57,6 +70,43 @@ function PaymentsPage() {
 		)
 	}, [payments])
 
+	const updatePayment = (id: number, update: Partial<Payment>) => {
+		setPayments((previous) =>
+			previous.map((payment) => (payment.id === id ? { ...payment, ...update } : payment)),
+		)
+	}
+
+	const submitOrder = async (id: number, phone: string, amount: number) => {
+		try {
+			const response = await fetch(ordersEndpoint, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({ phone, amount }),
+			})
+
+			const responseText = await response.text()
+
+			if (!response.ok) {
+				throw new Error(responseText || 'No se pudo crear la orden.')
+			}
+
+			updatePayment(id, {
+				status: 'Valid',
+				syncState: 'idle',
+				syncMessage: '',
+			})
+		} catch (error) {
+			const message = error instanceof Error ? error.message : 'Error de conexion.'
+			updatePayment(id, {
+				status: 'Rejected',
+				syncState: 'failed',
+				syncMessage: message,
+			})
+		}
+	}
+
 	const handleCreate = (event: FormEvent<HTMLFormElement>) => {
 		event.preventDefault()
 		const rawAmount = amountInput.trim().replace(',', '.')
@@ -73,12 +123,14 @@ function PaymentsPage() {
 			return
 		}
 
+		const createdId = nextId
 		const newPayment: Payment = {
-			id: nextId,
+			id: createdId,
 			amount,
 			phone: phoneValue,
 			reference: '',
 			status: 'Pending',
+			syncState: 'syncing',
 		}
 
 		setPayments((previous) => [newPayment, ...previous])
@@ -86,6 +138,8 @@ function PaymentsPage() {
 		setAmountInput('')
 		setPhoneInput('')
 		setFormError('')
+
+		void submitOrder(createdId, phoneValue, amount)
 	}
 
 	const clearForm = () => {
@@ -103,7 +157,7 @@ function PaymentsPage() {
 						? generateReference(new Date())
 						: payment.reference
 
-				return { ...payment, status, reference }
+				return { ...payment, status, reference, syncState: 'idle', syncMessage: '' }
 			}),
 		)
 	}
@@ -209,7 +263,7 @@ function PaymentsPage() {
 										<td className="cell-amount">CRC {formatAmount(payment.amount)}</td>
 										<td>{payment.phone}</td>
 										<td className="cell-reference">
-											{payment.reference || referencePlaceholder}
+											{getReferenceLabel(payment)}
 										</td>
 										<td>
 											<span
@@ -224,7 +278,9 @@ function PaymentsPage() {
 													type="button"
 													className="ghost"
 													onClick={() => updateStatus(payment.id, 'Valid')}
-													disabled={payment.status !== 'Pending'}
+													disabled={
+														payment.status !== 'Pending' || payment.syncState === 'syncing'
+													}
 												>
 													Validar
 												</button>
@@ -232,11 +288,21 @@ function PaymentsPage() {
 													type="button"
 													className="ghost"
 													onClick={() => updateStatus(payment.id, 'Rejected')}
-													disabled={payment.status !== 'Pending'}
+													disabled={
+														payment.status !== 'Pending' || payment.syncState === 'syncing'
+													}
 												>
 													Rechazar
 												</button>
 											</div>
+											{payment.syncState === 'syncing' ? (
+												<span className="sync-note sync-note-live">Procesando pago...</span>
+											) : null}
+											{payment.syncState === 'failed' && payment.syncMessage ? (
+												<span className="sync-note sync-note-error">
+													{payment.syncMessage}
+												</span>
+											) : null}
 										</td>
 									</tr>
 								))

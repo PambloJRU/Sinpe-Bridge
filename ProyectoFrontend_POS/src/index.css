@@ -283,6 +283,21 @@ input:focus {
   flex-wrap: wrap;
 }
 
+.sync-note {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 0.75rem;
+  color: var(--ink-muted);
+}
+
+.sync-note-live {
+  color: var(--accent-cool);
+}
+
+.sync-note-error {
+  color: #b91c1c;
+}
+
 .table-empty td {
   text-align: center;
   padding: 28px 16px;
