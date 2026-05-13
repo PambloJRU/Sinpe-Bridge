@@ -167,7 +167,7 @@ function PaymentsPage() {
 			<header className="pos-header">
 				<div className="pos-brand">
 					<p className="pos-kicker">SINPE POS</p>
-					<h1>Ordenes de cobro</h1>
+					<h1>Ordenes</h1>
 					<p className="pos-subtitle">
 						Cree ordenes con monto y telefono. La referencia llega con el SMS.
 					</p>

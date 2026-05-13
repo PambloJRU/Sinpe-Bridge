@@ -55,11 +55,12 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
                         return true;
 
                     var payment = await _context.Payments
-                        .Where(p =>
-                            p.Amount == order.Amount &&
-                            p.Status == PaymentStatus.Pending /*&&
-                            p.ReceivedAt.Date == DateTime.Now.Date*/)
-                        .FirstOrDefaultAsync();
+                    .Include(p => p.Client) // Incluimos al cliente para ver su teléfono
+                    .Where(p =>
+                    p.Amount == order.Amount &&
+                    p.Status == PaymentStatus.Pending &&
+                    p.Client.Phone == order.Phone) // ¡Validación CRUCIAL!
+                    .FirstOrDefaultAsync();
 
                     if (payment != null)
                     {
