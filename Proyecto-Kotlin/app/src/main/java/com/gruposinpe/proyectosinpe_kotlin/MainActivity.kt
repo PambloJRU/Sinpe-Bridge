@@ -10,22 +10,15 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
-import com.gruposinpe.proyectosinpe_kotlin.ui.theme.ProyectoSinpeKotlinTheme
 
-import retrofit2.Response
-import okhttp3.ResponseBody
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import android.util.Log
-import android.widget.Toast
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
@@ -58,7 +51,7 @@ class MainActivity : ComponentActivity(), SmsReceiverCallback {
 
                 Button(onClick = {
                     // Aquí llamamos a la lógica que creamos para la Tarea 02
-                    enviarPruebaAlServidor()
+                    TestSendToSERVERDOTNET()
                 }) {
                     Text("Simular Envío de SINPE")
                 }
@@ -85,14 +78,14 @@ class MainActivity : ComponentActivity(), SmsReceiverCallback {
     override fun onSmsReceived(smsRequest: SmsRequest) {
         Log.d("SMS_LLEGÓ", "SMS RECIBIDO: $smsRequest")
         //acá llamar al metodo para enviar el sms
-        enviarSmsAlServidor(smsRequest)
+        sendRealSMSCycleScope(smsRequest)
     }
 
     //Con este metodo enviamos el SMS real al back
-    private fun enviarSmsAlServidor(smsRequest: SmsRequest) {
+    private fun sendRealSMSCycleScope(smsRequest: SmsRequest) {
         lifecycleScope.launch {
             try {
-                val response = RetrofitClient.instance.enviarSmsAlServidor(smsRequest)
+                val response = RetrofitClient.instance.sendRealSMSToServer(smsRequest)
 
                 if (response.isSuccessful) {
                     Log.d("SINPE_BRIDGE", "¡SMS REAL enviado a .NET!")
@@ -105,7 +98,7 @@ class MainActivity : ComponentActivity(), SmsReceiverCallback {
         }
     }
 
-    private fun enviarPruebaAlServidor() {
+    private fun TestSendToSERVERDOTNET() {
         // 1. Creamos un objeto de prueba con el formato que espera tu C#
         val smsPrueba = SmsRequest(
             senderNumber = "2627-3342", // Número típico de notificaciones BCCR
@@ -118,7 +111,7 @@ class MainActivity : ComponentActivity(), SmsReceiverCallback {
         // 2. Ejecutamos la petición en una corrutina (hilo secundario)
         lifecycleScope.launch {
             try {
-                val response = RetrofitClient.instance.enviarSmsAlServidor(smsPrueba)
+                val response = RetrofitClient.instance.sendRealSMSToServer(smsPrueba)
 
                 if (response.isSuccessful) {
                     Log.d("SINPE_BRIDGE", " ¡CONECTADO! El servidor respondió: ${response.body()?.string()}")
@@ -142,7 +135,7 @@ class MainActivity : ComponentActivity(), SmsReceiverCallback {
             Text(text = "SINPE Bridge - Panel de Pruebas", style = MaterialTheme.typography.headlineMedium)
             Spacer(modifier = Modifier.height(20.dp))
 
-            Button(onClick = { enviarPruebaAlServidor() }) {
+            Button(onClick = { TestSendToSERVERDOTNET() }) {
                 Text("Probar conexión con .NET")
             }
         }

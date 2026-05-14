@@ -10,7 +10,7 @@ import retrofit2.http.POST
 interface ApiService {
 
     @POST("api/Sms/receive")
-    suspend fun enviarSmsAlServidor(@Body sms: SmsRequest): Response<ResponseBody>
+    suspend fun sendRealSMSToServer(@Body sms: SmsRequest): Response<ResponseBody>
 
 
 
