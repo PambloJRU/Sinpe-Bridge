@@ -1,4 +1,5 @@
-import { useMemo, useState, type FormEvent } from 'react'
+﻿import { useMemo, useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 
 type PaymentStatus = 'Pending' | 'Valid' | 'Rejected'
 type SyncState = 'idle' | 'syncing' | 'failed'
@@ -54,6 +55,7 @@ function PaymentsPage() {
 	const [phoneInput, setPhoneInput] = useState('')
 	const [formError, setFormError] = useState('')
 	const [nextId, setNextId] = useState(1)
+	const [showMenu, setShowMenu] = useState(false)
 
 	const stats = useMemo(() => {
 		return payments.reduce(
@@ -186,11 +188,48 @@ function PaymentsPage() {
 
 			<section className="pos-card pos-table">
 				<div className="pos-table-top">
-					<div>
-						<h2>Crear orden</h2>
-						<p className="pos-subtitle">Monto y telefono del cliente.</p>
-					</div>
-				</div>
+	<div>
+		<h2>Crear orden</h2>
+		<p className="pos-subtitle">Monto y telefono del cliente.</p>
+	</div>
+
+	<div style={{ position: 'relative' }}>
+		<button
+			type="button"
+			className="ghost"
+			onClick={() => setShowMenu(!showMenu)}
+		>
+			⋮
+		</button>
+
+		{showMenu && (
+			<div
+				style={{
+					position: 'absolute',
+					right: 0,
+					top: '45px',
+					background: 'white',
+					border: '1px solid #ddd',
+					borderRadius: '10px',
+					padding: '10px',
+					boxShadow: '0 8px 20px rgba(0,0,0,0.1)',
+					zIndex: 100
+				}}
+			>
+				<Link
+					to="/historial"
+					style={{
+						textDecoration: 'none',
+						color: '#333',
+						fontWeight: 500
+					}}
+				>
+					Historial
+				</Link>
+			</div>
+		)}
+	</div>
+</div>
 
 				<form className="pos-form-inline" onSubmit={handleCreate}>
 					<label className="field-inline">
