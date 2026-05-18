@@ -1,4 +1,5 @@
-﻿using ProyectoIngenieriaBACKEND_POS.Models.Entities;
+﻿using ProyectoIngenieriaBACKEND_POS.Models.Dtos;
+using ProyectoIngenieriaBACKEND_POS.Models.Entities;
 
 namespace ProyectoIngenieriaBACKEND_POS.Services.Interfaces
 {
@@ -11,6 +12,7 @@ namespace ProyectoIngenieriaBACKEND_POS.Services.Interfaces
         /// <returns>La entidad Order creada con su Id asignado.</returns>
         Task<Order> CreateOrderAsync(OrderCreateDTO orderDto);
         Task<List<Order>> GetAllAsync();
-        Task <bool> AssociateOrderWithPayment(int orderId); 
+        Task <bool> AssociateOrderWithPayment(int orderId);
+        Task<OrderStatusDTO> GetOrderStatusAsync(int orderId);
     }
 }

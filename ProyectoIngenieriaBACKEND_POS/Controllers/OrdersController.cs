@@ -16,7 +16,8 @@ namespace ProyectoIngenieriaBACKEND_POS.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetAll() {
+        public async Task<IActionResult> GetAll()
+        {
             var result = await _orderService.GetAllAsync();
             return Ok(result);
         }
@@ -27,16 +28,28 @@ namespace ProyectoIngenieriaBACKEND_POS.Controllers
             try
             {
                 var order = await _orderService.CreateOrderAsync(dto);
-                await _orderService.AssociateOrderWithPayment(order.Id); //luego de crear la orden, buscamos un pago durante 5 minutos
-                return Ok("orden creada y asociada");
-            }
-            catch (TimeoutException ex)
-            {
-                return BadRequest("Pago no recibido dentro del tiempo límite");
+                return Ok(new { orderId = order.Id, message = "Orden creada. Esperando pago..." });
             }
             catch (Exception ex)
             {
-                return BadRequest(ex.Message);
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpGet("{orderId}/status")]
+        public async Task<IActionResult> GetOrderStatus(int orderId)
+        {
+            try
+            {
+                var status = await _orderService.GetOrderStatusAsync(orderId);
+                if (status == null)
+                    return NotFound();
+
+                return Ok(status);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
             }
         }
     }

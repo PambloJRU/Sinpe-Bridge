@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from 'react'
+import { useMemo, useState, useRef , type FormEvent } from 'react'
 
 type PaymentStatus = 'Pending' | 'Valid' | 'Rejected'
 type SyncState = 'idle' | 'syncing' | 'failed'
@@ -11,6 +11,8 @@ type Payment = {
 	status: PaymentStatus
 	syncState: SyncState
 	syncMessage?: string
+	orderId?: number
+	createdAt?: number
 }
 
 const formatAmount = (value: number) =>
@@ -54,6 +56,7 @@ function PaymentsPage() {
 	const [phoneInput, setPhoneInput] = useState('')
 	const [formError, setFormError] = useState('')
 	const [nextId, setNextId] = useState(1)
+	const pollersRef = useRef<Map<number, ReturnType<typeof setInterval>>>(new Map())
 
 	const stats = useMemo(() => {
 		return payments.reduce(
@@ -77,6 +80,8 @@ function PaymentsPage() {
 	}
 
 	const submitOrder = async (id: number, phone: string, amount: number) => {
+		const createdAt = Date.now()
+
 		try {
 			const response = await fetch(ordersEndpoint, {
 				method: 'POST',
@@ -86,17 +91,21 @@ function PaymentsPage() {
 				body: JSON.stringify({ phone, amount }),
 			})
 
-			const responseText = await response.text()
+			const responseData = await response.json()
 
 			if (!response.ok) {
-				throw new Error(responseText || 'No se pudo crear la orden.')
+				throw new Error(responseData.message || 'No se pudo crear la orden.')
 			}
 
 			updatePayment(id, {
-				status: 'Valid',
-				syncState: 'idle',
-				syncMessage: '',
+				orderId: responseData.orderId,
+				status: 'Pending',
+				syncState: 'syncing',
+				syncMessage: 'Esperando SINPE...',
+				createdAt,
 			})
+
+			startPollingOrder(responseData.orderId, id, createdAt)
 		} catch (error) {
 			const message = error instanceof Error ? error.message : 'Error de conexion.'
 			updatePayment(id, {
@@ -105,6 +114,65 @@ function PaymentsPage() {
 				syncMessage: message,
 			})
 		}
+	}
+
+	const startPollingOrder = (orderId: number, paymentId: number, createdAt: number) => {
+		const TIMEOUT_MS = 5 * 60 * 1000
+
+		const pollStatus = async () => {
+			try {
+				const elapsed = Date.now() - createdAt
+				if (elapsed > TIMEOUT_MS) {
+					updatePayment(paymentId, {
+						status: 'Rejected',
+						syncState: 'failed',
+						syncMessage: 'Pago no recibido en 5 minutos',
+					})
+					const timer = pollersRef.current.get(orderId)
+					if (timer) {
+						clearInterval(timer)
+						pollersRef.current.delete(orderId)
+					}
+					return
+				}
+
+				const response = await fetch(`${ordersEndpoint}/${orderId}/status`)
+				if (response.ok) {
+					const data = await response.json()
+
+					if (data.state === 'PAGADA') {
+						updatePayment(paymentId, {
+							status: 'Valid',
+							syncState: 'idle',
+							syncMessage: '',
+							reference: generateReference(new Date()),
+						})
+						const timer = pollersRef.current.get(orderId)
+						if (timer) {
+							clearInterval(timer)
+							pollersRef.current.delete(orderId)
+						}
+					} else if (data.state === 'RECHAZADA') {
+						updatePayment(paymentId, {
+							status: 'Rejected',
+							syncState: 'failed',
+							syncMessage: 'Pago rechazado',
+						})
+						const timer = pollersRef.current.get(orderId)
+						if (timer) {
+							clearInterval(timer)
+							pollersRef.current.delete(orderId)
+						}
+					}
+				}
+			} catch (error) {
+				console.error('Error polling:', error)
+			}
+		}
+
+		const timer = setInterval(pollStatus, 5000)
+		pollersRef.current.set(orderId, timer)
+		pollStatus()
 	}
 
 	const handleCreate = (event: FormEvent<HTMLFormElement>) => {

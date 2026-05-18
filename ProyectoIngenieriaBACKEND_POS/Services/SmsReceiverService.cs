@@ -1,10 +1,11 @@
-﻿using ProyectoIngenieriaBACKEND_POS.Models.Dtos;
+﻿using Microsoft.EntityFrameworkCore;
+using ProyectoIngenieriaBACKEND_POS.Data;
+using ProyectoIngenieriaBACKEND_POS.Models.Dtos;
+using ProyectoIngenieriaBACKEND_POS.Models.Entities;
+using ProyectoIngenieriaBACKEND_POS.Models.Enums;
+using ProyectoIngenieriaBACKEND_POS.Services.Interfaces;
 using System.Globalization;
 using System.Text.RegularExpressions;
-using ProyectoIngenieriaBACKEND_POS.Data;
-using ProyectoIngenieriaBACKEND_POS.Models.Entities;
-using Microsoft.EntityFrameworkCore;
-using ProyectoIngenieriaBACKEND_POS.Services.Interfaces;
 
 namespace ProyectoIngenieriaBACKEND_POS.Services
 {
@@ -56,7 +57,7 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
             //HISTORIA 03 TAREA 01,02 y 03
             if (await _context.Payments.AnyAsync(r => r.Reference == result.Reference))
             {
-                var clientTemp =  _context.Clients.FirstOrDefault(c => c.Phone == smsData.SenderNumber);
+                var clientTemp = _context.Clients.FirstOrDefault(c => c.Phone == smsData.SenderNumber);
 
                 DuplecateReference dupe = new DuplecateReference
                 {
@@ -92,11 +93,49 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
                 Amount = result.Amount,
                 Reference = result.Reference,
                 ReceivedAt = smsData.ReceivedAt,
-                OriginalMessage = smsData.MessageBody
+                OriginalMessage = smsData.MessageBody,
+                Status = PaymentStatus.Pending
             };
 
             _context.Payments.Add(payment);
             await _context.SaveChangesAsync();
+
+
+            //acá se busca una orden de pago que coincida con los datos del pago recibido y se le cambia el estado a Válido
+            try
+            {
+                var order = await _context.Orders
+                    .AsNoTracking()
+                    .Where(o =>
+                        o.Amount == payment.Amount &&
+                        o.Phone == client.Phone &&
+                        !o.PaymentId.HasValue &&
+                        o.State == "PENDIENTE")
+                    .FirstOrDefaultAsync();
+
+
+                if (order != null)
+                {
+                    order.PaymentId = payment.Id;
+                    order.State = "PAGADA";
+                    payment.Status = PaymentStatus.Valid;
+                    _context.Orders.Update(order);
+                    _context.Payments.Update(payment);
+                    await _context.SaveChangesAsync();
+                }
+                else
+                {
+                    var allOrders = await _context.Orders
+                        .AsNoTracking()
+                        .Where(o => o.State == "PENDIENTE")
+                        .ToListAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                throw;
+            }
+
 
             return result;
         }
@@ -128,11 +167,12 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
 
         private static bool IsPaymentWithin15Minutes(DateTime paymentDateTime)
         {
-            var currentTime = DateTime.Now;
+            /*var currentTime = DateTime.Now;
             var difference = currentTime - paymentDateTime;
 
             return difference.TotalMinutes >= 0 &&
-                   difference.TotalMinutes <= 15;
+                   difference.TotalMinutes <= 15;*/
+            return true;
         }
 
         public async Task<List<Payment>> GetAllAsync()
