@@ -12,7 +12,6 @@ namespace ProyectoIngenieriaBACKEND_POS.Services.Interfaces
         /// <returns>La entidad Order creada con su Id asignado.</returns>
         Task<Order> CreateOrderAsync(OrderCreateDTO orderDto);
         Task<List<Order>> GetAllAsync();
-        Task <bool> AssociateOrderWithPayment(int orderId);
         Task<OrderStatusDTO> GetOrderStatusAsync(int orderId);
     }
 }
