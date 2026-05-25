@@ -2,12 +2,11 @@ package com.gruposinpe.proyectosinpe_kotlin.network
 
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
-
+import com.gruposinpe.proyectosinpe_kotlin.BuildConfig
 object RetrofitClient {
-    // IMPORTANTE: Si van a usar el emulador de Android, usa 10.0.2.2
-    // Si van a usar el teléfono físico, usen la IP de la compu (tienen que buscarla si, ej: 192.168.1.15)
+    // IMPORTANTE: la IP esta en el archivo local.properties, modifiquenla cada uno como les convenga
 
-    private const val BASE_URL = "http://10.0.2.2:5198/"
+    private val BASE_URL = BuildConfig.BASE_URL
 
     val instance: ApiService by lazy {
         val retrofit = Retrofit.Builder()

@@ -1,3 +1,4 @@
+import java.util.Properties
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -11,6 +12,10 @@ android {
         }
     }
 
+    buildFeatures {
+        buildConfig = true
+    }
+
     defaultConfig {
         applicationId = "com.gruposinpe.proyectosinpe_kotlin"
         minSdk = 26
@@ -19,6 +24,19 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        val properties = Properties()
+        val localPropertiesFile = rootProject.file("local.properties")
+        if (localPropertiesFile.exists()) {
+            properties.load(localPropertiesFile.inputStream())
+        }
+
+        // Si alguien no la ha puesto, usa la del emulador por defecto.
+        val baseUrl = properties.getProperty("API_BASE_URL") ?: "http://10.0.2.2/"
+
+        // Crear la variable para usarla en Kotlin
+        // las comillas escapadas "\"$baseUrl\"" para que sea un String válido en código xd
+        buildConfigField("String", "BASE_URL", "\"$baseUrl\"")
     }
 
     buildTypes {
