@@ -1,4 +1,4 @@
-﻿import { useMemo, useState, useRef , type FormEvent } from 'react'
+﻿import { useMemo, useState, useRef, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 
 type PaymentStatus = 'Pending' | 'Valid' | 'Rejected'
@@ -181,7 +181,7 @@ function PaymentsPage() {
 		event.preventDefault()
 		const rawAmount = amountInput.trim().replace(',', '.')
 		const amount = Number(rawAmount)
-		const phoneValue = phoneInput.trim()
+		let phoneValue = phoneInput.trim()
 
 		if (!Number.isFinite(amount) || amount <= 0) {
 			setFormError('Ingrese un monto valido para continuar.')
@@ -191,6 +191,10 @@ function PaymentsPage() {
 		if (!phoneValue || phoneValue.length < 7) {
 			setFormError('Ingrese un telefono valido para continuar.')
 			return
+		}
+
+		if (!phoneValue.startsWith('+506')) {
+			phoneValue = '+506' + phoneValue.replace(/\D/g, '')
 		}
 
 		const createdId = nextId
@@ -256,48 +260,48 @@ function PaymentsPage() {
 
 			<section className="pos-card pos-table">
 				<div className="pos-table-top">
-	<div>
-		<h2>Crear orden</h2>
-		<p className="pos-subtitle">Monto y telefono del cliente.</p>
-	</div>
+					<div>
+						<h2>Crear orden</h2>
+						<p className="pos-subtitle">Monto y telefono del cliente.</p>
+					</div>
 
-	<div style={{ position: 'relative' }}>
-		<button
-			type="button"
-			className="ghost"
-			onClick={() => setShowMenu(!showMenu)}
-		>
-			⋮
-		</button>
+					<div style={{ position: 'relative' }}>
+						<button
+							type="button"
+							className="ghost"
+							onClick={() => setShowMenu(!showMenu)}
+						>
+							⋮
+						</button>
 
-		{showMenu && (
-			<div
-				style={{
-					position: 'absolute',
-					right: 0,
-					top: '45px',
-					background: 'white',
-					border: '1px solid #ddd',
-					borderRadius: '10px',
-					padding: '10px',
-					boxShadow: '0 8px 20px rgba(0,0,0,0.1)',
-					zIndex: 100
-				}}
-			>
-				<Link
-					to="/historial"
-					style={{
-						textDecoration: 'none',
-						color: '#333',
-						fontWeight: 500
-					}}
-				>
-					Historial
-				</Link>
-			</div>
-		)}
-	</div>
-</div>
+						{showMenu && (
+							<div
+								style={{
+									position: 'absolute',
+									right: 0,
+									top: '45px',
+									background: 'white',
+									border: '1px solid #ddd',
+									borderRadius: '10px',
+									padding: '10px',
+									boxShadow: '0 8px 20px rgba(0,0,0,0.1)',
+									zIndex: 100
+								}}
+							>
+								<Link
+									to="/historial"
+									style={{
+										textDecoration: 'none',
+										color: '#333',
+										fontWeight: 500
+									}}
+								>
+									Historial
+								</Link>
+							</div>
+						)}
+					</div>
+				</div>
 
 				<form className="pos-form-inline" onSubmit={handleCreate}>
 					<label className="field-inline">
