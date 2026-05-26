@@ -76,7 +76,7 @@ class MainActivity : ComponentActivity(), SmsReceiverCallback {
 
     //Acá se recibe el sms real, ya construido
     override fun onSmsReceived(smsRequest: SmsRequest) {
-        Log.d("SMS_LLEGÓ", "SMS RECIBIDO: $smsRequest")
+        Log.d("SINPE_BRIDGE", "SMS RECIBIDO: $smsRequest")
         //acá llamar al metodo para enviar el sms
         sendRealSMSCycleScope(smsRequest)
     }
@@ -84,13 +84,15 @@ class MainActivity : ComponentActivity(), SmsReceiverCallback {
     //Con este metodo enviamos el SMS real al back
     private fun sendRealSMSCycleScope(smsRequest: SmsRequest) {
         lifecycleScope.launch {
+
+            Log.d("SINPE_BRIDGE", "Iniciando envío al servidor...")
             try {
                 val response = RetrofitClient.instance.sendRealSMSToServer(smsRequest)
-
+                Log.d("SINPE_BRIDGE", "Solicitud enviada a: ${response.raw().request().url()}")
                 if (response.isSuccessful) {
                     Log.d("SINPE_BRIDGE", "¡SMS REAL enviado a .NET!")
                 } else {
-                    Log.e("SINPE_BRIDGE", "Error: ${response.code()}")
+                    Log.e("SINPE_BRIDGE", "Error: ${response.code()} " + "${response.body()} ")
                 }
             } catch (e: Exception) {
                 Log.e("SINPE_BRIDGE", "Error de conexión: ${e.message}")
@@ -112,6 +114,8 @@ class MainActivity : ComponentActivity(), SmsReceiverCallback {
         lifecycleScope.launch {
             try {
                 val response = RetrofitClient.instance.sendRealSMSToServer(smsPrueba)
+
+
 
                 if (response.isSuccessful) {
                     Log.d("SINPE_BRIDGE", " ¡CONECTADO! El servidor respondió: ${response.body()?.string()}")

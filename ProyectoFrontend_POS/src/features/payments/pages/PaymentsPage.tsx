@@ -151,7 +151,7 @@ function PaymentsPage() {
 						})
 						const timer = pollersRef.current.get(orderId)
 						if (timer) {
-							clearInterval(timer)
+							clearTimeout(timer)
 							pollersRef.current.delete(orderId)
 						}
 					} else if (data.state === 'RECHAZADA') {
@@ -162,7 +162,7 @@ function PaymentsPage() {
 						})
 						const timer = pollersRef.current.get(orderId)
 						if (timer) {
-							clearInterval(timer)
+							clearTimeout(timer)
 							pollersRef.current.delete(orderId)
 						}
 					}
@@ -172,10 +172,21 @@ function PaymentsPage() {
 			}
 		}
 
-		const timer = setInterval(pollStatus, 5000)
-		pollersRef.current.set(orderId, timer)
-		pollStatus()
+		//const timer = setInterval(pollStatus, 5000)
+		//pollersRef.current.set(orderId, timer)
+		//pollStatus()
+		const pollWithTimeout = async () => {
+			await pollStatus();
+
+			// Solo vuelve a programar el siguiente intento si la orden (no ha sido cancelada o pagada)
+			if (pollersRef.current.has(orderId)) {
+				const timer = setTimeout(pollWithTimeout, 5000);
+				pollersRef.current.set(orderId, timer);
+			}
+		}
 	}
+
+
 
 	const handleCreate = (event: FormEvent<HTMLFormElement>) => {
 		event.preventDefault()

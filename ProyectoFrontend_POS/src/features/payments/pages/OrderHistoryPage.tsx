@@ -22,7 +22,9 @@ const formatAmount = (value: number) =>
 
 function OrderHistoryPage() {
 	const [orders, setOrders] = useState<Order[]>([])
-	const [phoneSearch, setPhoneSearch] = useState('')
+	const [searchTerm, setSearchTerm] = useState('') // Buscador único para teléfono o estado
+	const [currentPage, setCurrentPage] = useState(1) // Página actual
+	const itemsPerPage = 15 // Cantidad de elementos por página
 
 	useEffect(() => {
 		loadOrders()
@@ -38,11 +40,29 @@ function OrderHistoryPage() {
 		}
 	}
 
+	// 1. FILTRADO: Buscar por teléfono O por estado (ignorando mayúsculas/minúsculas)
 	const filteredOrders = useMemo(() => {
-		return orders.filter(order =>
-			order.phone?.includes(phoneSearch)
-		)
-	}, [orders, phoneSearch])
+		const term = searchTerm.toLowerCase().trim()
+		return orders.filter(order => {
+			const phoneMatch = order.phone?.toLowerCase().includes(term)
+			const stateMatch = order.state?.toLowerCase().includes(term)
+			return phoneMatch || stateMatch
+		})
+	}, [orders, searchTerm])
+
+	// Al cambiar el término de búsqueda, reiniciamos a la página 1 para evitar inconsistencias
+	useEffect(() => {
+		setCurrentPage(1)
+	}, [searchTerm])
+
+	// 2. PAGINACIÓN: Calcular los índices de los elementos que se van a mostrar
+	const totalPages = Math.ceil(filteredOrders.length / itemsPerPage)
+	
+	const paginatedOrders = useMemo(() => {
+		const startIndex = (currentPage - 1) * itemsPerPage
+		const endIndex = startIndex + itemsPerPage
+		return filteredOrders.slice(startIndex, endIndex)
+	}, [filteredOrders, currentPage])
 
 	return (
 		<div className="pos-shell">
@@ -89,15 +109,15 @@ function OrderHistoryPage() {
 					}}
 					type="text"
 					placeholder="Buscar por telefono..."
-					value={phoneSearch}
-					onChange={e => setPhoneSearch(e.target.value)}
+					value={searchTerm}
+					onChange={e => setSearchTerm(e.target.value)}
 				/>
 
 				<div className="table-wrapper">
 					<table className="payments-table">
 						<thead>
 							<tr>
-								<th>ID</th>
+
 								<th>Telefono</th>
 								<th>Monto</th>
 								<th>Estado</th>
@@ -105,25 +125,63 @@ function OrderHistoryPage() {
 						</thead>
 
 						<tbody>
-							{filteredOrders.length === 0 ? (
+							{paginatedOrders.length === 0 ? (
 								<tr className="table-empty">
-									<td colSpan={4}>
-										No hay ordenes registradas.
+									<td colSpan={3}>
+										No se encontraron órdenes que coincidan.
 									</td>
 								</tr>
 							) : (
-								filteredOrders.map(order => (
+								paginatedOrders.map(order => (
 									<tr key={order.id}>
-										<td>{order.id}</td>
 										<td>{order.phone}</td>
-										<td>CRC {formatAmount(order.amount)}</td>
-										<td>{order.state}</td>
+										<td className="font-mono amount-cell">
+											₡{formatAmount(order.amount)}
+										</td>
+										<td>
+											<span
+												className={`status-chip status-${(order.state ?? 'PENDIENTE').toLowerCase()}`}
+											>
+												{order.state}
+											</span>
+										</td>
 									</tr>
 								))
 							)}
 						</tbody>
 					</table>
 				</div>
+				{totalPages > 1 && (
+					<div className="pagination-controls" style={{
+						display: 'flex',
+						justifyContent: 'space-between',
+						alignItems: 'center',
+						marginTop: '20px',
+						padding: '10px 5px'
+					}}>
+						<button
+							className="ghost"
+							onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+							disabled={currentPage === 1}
+							style={{ opacity: currentPage === 1 ? 0.5 : 1, cursor: currentPage === 1 ? 'not-allowed' : 'pointer' }}
+						>
+							← Anterior
+						</button>
+						
+						<span style={{ fontSize: '14px', color: '#666', fontWeight: 500 }}>
+							Página {currentPage} de {totalPages} ({filteredOrders.length} resultados)
+						</span>
+
+						<button
+							className="ghost"
+							onClick={() => setCurrentPage(prev => Math.max(prev + 1, totalPages))}
+							disabled={currentPage === totalPages}
+							style={{ opacity: currentPage === totalPages ? 0.5 : 1, cursor: currentPage === totalPages ? 'not-allowed' : 'pointer' }}
+						>
+							Siguiente →
+						</button>
+					</div>
+				)}
 			</section>
 		</div>
 	)
