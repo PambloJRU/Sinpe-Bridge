@@ -12,10 +12,14 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
     public class SmsReceiverService : ISmsReceiverService
     {
         private readonly AppDbContext _context;
+        private readonly IAuditLogService _auditLogService;
 
-        public SmsReceiverService(AppDbContext context)
+    public SmsReceiverService(
+        AppDbContext context,
+        IAuditLogService auditLogService)
         {
             _context = context;
+            _auditLogService = auditLogService;
         }
 
         private static readonly Regex SinpeSmsRegex = new Regex(
@@ -51,6 +55,12 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
 
             if (!IsPaymentWithin15Minutes(result.PaymentDateTime))
             {
+                await _auditLogService.LogEventAsync(
+                    EventType.PaymentExpired,
+                    RiskLevel.Medium,
+                    $"Pago rechazado por antigüedad. Referencia: {result.Reference}"
+                );
+
                 throw new InvalidOperationException("PAYMENT_EXPIRED");
             }
 
@@ -68,6 +78,12 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
 
                 _context.DuplecateReferences.Add(dupe);
                 await _context.SaveChangesAsync();
+
+                await _auditLogService.LogEventAsync(
+                    EventType.DuplicateReference,
+                    RiskLevel.High,
+                    $"Referencia duplicada detectada: {result.Reference} desde {smsData.SenderNumber}"
+                ); 
 
                 throw new InvalidOperationException("DUPLICATE_REFERENCE");
             }
@@ -119,8 +135,18 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
                     order.PaymentId = payment.Id;
                     order.State = "PAGADA";
                     payment.Status = PaymentStatus.Valid;
+                    
                     _context.Orders.Update(order);
                     _context.Payments.Update(payment);
+                   
+                    await _auditLogService.LogEventAsync(
+                        EventType.PaymentConfirmed,
+                        RiskLevel.Low,
+                        $"Pago confirmado por {result.Amount} colones. Referencia: {result.Reference}",
+                        paymentId: payment.Id,
+                        orderId: order.Id
+                     );
+
                     await _context.SaveChangesAsync();
                 }
                 else
@@ -131,7 +157,7 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
                         .ToListAsync();
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 throw;
             }
