@@ -17,6 +17,7 @@ builder.Services.AddOpenApi();
 //ESPACIOS PARA AGREGAR SERVICIOS
 builder.Services.AddScoped<ISmsReceiverService, SmsReceiverService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
+builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
