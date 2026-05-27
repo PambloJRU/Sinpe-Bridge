@@ -175,9 +175,5 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
             return true;
         }
 
-        public async Task<List<Payment>> GetAllAsync()
-        {
-            return await _context.Payments.ToListAsync();
-        }
     }
 }

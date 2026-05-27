@@ -296,7 +296,11 @@ function PaymentsPage() {
 									borderRadius: '10px',
 									padding: '10px',
 									boxShadow: '0 8px 20px rgba(0,0,0,0.1)',
-									zIndex: 100
+									zIndex: 100,
+									 
+								    display: 'flex',
+									flexDirection: 'column',
+									gap: '10px' 
 								}}
 							>
 								<Link
@@ -308,6 +312,16 @@ function PaymentsPage() {
 									}}
 								>
 									Historial
+								</Link>
+
+								<Link 
+								to="/pagos"
+									style={{
+										textDecoration: 'none',
+										color: '#333',
+										fontWeight: 500
+									}}>
+									Pagos
 								</Link>
 							</div>
 						)}

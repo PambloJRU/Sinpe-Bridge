@@ -3,8 +3,8 @@ using ProyectoIngenieriaBACKEND_POS.Models.Entities;
 
 namespace ProyectoIngenieriaBACKEND_POS.Services.Interfaces
 {
-    public interface ISmsReceiverService
+    public interface IPaymentService
     {
-        Task<ParsedSmsResult?> ProcessIncomingSmsAsync(SmsRequestDTO smsData);
+       public Task<List<PaymentInfoDTO>> GetPaymentsWithClientInfoAsync();
     }
 }
