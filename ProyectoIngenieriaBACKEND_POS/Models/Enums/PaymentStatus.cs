@@ -4,6 +4,7 @@
     {
         Pending = 0,
         Valid = 1,
-        Rejected = 2
+        Rejected = 2,
+        PendingReview = 3
     }
 }

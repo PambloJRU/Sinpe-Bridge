@@ -2,6 +2,7 @@
 using ProyectoIngenieriaBACKEND_POS.Data;
 using ProyectoIngenieriaBACKEND_POS.Models.Dtos;
 using ProyectoIngenieriaBACKEND_POS.Models.Entities;
+using ProyectoIngenieriaBACKEND_POS.Models.Enums;
 using ProyectoIngenieriaBACKEND_POS.Services.Interfaces;
 
 namespace ProyectoIngenieriaBACKEND_POS.Services
@@ -45,6 +46,60 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
             ClientName = p.Client.Name
         })
         .ToListAsync(); ;
+        }
+
+        public async Task<List<PendingReviewPaymentDTO>> GetPendingReviewPaymentsAsync()
+        {
+            var payments = await _context.Payments
+                .AsNoTracking()
+                .Where(p => p.Status == PaymentStatus.PendingReview)
+                .Select(p => new PendingReviewPaymentDTO
+                {
+                    PaymentId = p.Id,  // Cambio: p.Id
+                    Amount = p.Amount,
+                    Reference = p.Reference,
+                    ClientPhone = p.Client.Phone,
+                    ClientName = p.Client.Name,
+                    OrderId = p.Orders.FirstOrDefault() != null ? p.Orders.FirstOrDefault().Id : null,
+                    OrderAmount = p.Orders.FirstOrDefault() != null ? p.Orders.FirstOrDefault().Amount : null,
+                    Difference = p.Orders.FirstOrDefault() != null ? p.Orders.FirstOrDefault().Amount - p.Amount : null,
+                    ReceivedAt = p.ReceivedAt
+                })
+                .ToListAsync();
+
+            return payments;
+        }
+
+        public async Task ReviewPaymentAsync(int paymentId, bool approved)
+        {
+            var payment = await _context.Payments
+                .Include(p => p.Orders)
+                .FirstOrDefaultAsync(p => p.Id == paymentId);
+
+            if (payment == null)
+                throw new ArgumentException("Pago no encontrado");
+
+            if (payment.Status != PaymentStatus.PendingReview)
+                throw new InvalidOperationException("El pago no está en revisión");
+
+            if (approved)
+            {
+                payment.Status = PaymentStatus.Valid;
+            }
+            else
+            {
+                payment.Status = PaymentStatus.Rejected;
+
+                foreach (var order in payment.Orders)
+                {
+                    order.PaymentId = null;
+                    order.State = "PENDIENTE";
+                    _context.Orders.Update(order);
+                }
+            }
+
+            _context.Payments.Update(payment);
+            await _context.SaveChangesAsync();
         }
     }
 }

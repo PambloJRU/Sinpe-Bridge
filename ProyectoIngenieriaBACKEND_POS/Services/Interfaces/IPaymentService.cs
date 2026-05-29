@@ -6,5 +6,7 @@ namespace ProyectoIngenieriaBACKEND_POS.Services.Interfaces
     public interface IPaymentService
     {
        public Task<List<PaymentInfoDTO>> GetPaymentsWithClientInfoAsync();
+        Task<List<PendingReviewPaymentDTO>> GetPendingReviewPaymentsAsync();
+        Task ReviewPaymentAsync(int paymentId, bool approved);
     }
 }

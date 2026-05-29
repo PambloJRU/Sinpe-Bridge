@@ -129,32 +129,39 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
                         o.State == "PENDIENTE")
                     .FirstOrDefaultAsync();
 
-
                 if (order != null)
                 {
                     order.PaymentId = payment.Id;
                     order.State = "PAGADA";
                     payment.Status = PaymentStatus.Valid;
-                    
                     _context.Orders.Update(order);
                     _context.Payments.Update(payment);
-                   
-                    await _auditLogService.LogEventAsync(
-                        EventType.PaymentConfirmed,
-                        RiskLevel.Low,
-                        $"Pago confirmado por {result.Amount} colones. Referencia: {result.Reference}",
-                        paymentId: payment.Id,
-                        orderId: order.Id
-                     );
-
                     await _context.SaveChangesAsync();
                 }
                 else
                 {
-                    var allOrders = await _context.Orders
+                    var orderByPhone = await _context.Orders
                         .AsNoTracking()
-                        .Where(o => o.State == "PENDIENTE")
-                        .ToListAsync();
+                        .Where(o =>
+                            o.Phone == client.Phone &&
+                            !o.PaymentId.HasValue &&
+                            o.State == "PENDIENTE")
+                        .FirstOrDefaultAsync();
+
+                    if (orderByPhone != null)
+                    {
+                        orderByPhone.PaymentId = payment.Id;
+                        payment.Status = PaymentStatus.PendingReview;
+                        _context.Orders.Update(orderByPhone);
+                        _context.Payments.Update(payment);
+                        await _context.SaveChangesAsync();
+                    }
+                    else
+                    {
+                        payment.Status = PaymentStatus.PendingReview;
+                        _context.Payments.Update(payment);
+                        await _context.SaveChangesAsync();
+                    }
                 }
             }
             catch (Exception)
