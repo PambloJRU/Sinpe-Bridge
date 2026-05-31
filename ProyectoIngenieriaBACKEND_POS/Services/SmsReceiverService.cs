@@ -129,8 +129,12 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
                         o.State == "PENDIENTE")
                     .FirstOrDefaultAsync();
 
+                Console.WriteLine($"[SMS] Búsqueda exacta: Amount={payment.Amount}, Phone={client.Phone}");
+                Console.WriteLine($"[SMS] Orden encontrada: {(order != null ? order.Id : "NO")}");
+
                 if (order != null)
                 {
+                    Console.WriteLine($"[SMS] Coincidencia exacta, aprobando pago");
                     order.PaymentId = payment.Id;
                     order.State = "PAGADA";
                     payment.Status = PaymentStatus.Valid;
@@ -140,6 +144,7 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
                 }
                 else
                 {
+                    Console.WriteLine($"[SMS] Sin coincidencia exacta, buscando por teléfono");
                     var orderByPhone = await _context.Orders
                         .AsNoTracking()
                         .Where(o =>
@@ -151,6 +156,7 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
                     if (orderByPhone != null)
                     {
                         orderByPhone.PaymentId = payment.Id;
+                        orderByPhone.State = "PAGO_PARCIAL";
                         payment.Status = PaymentStatus.PendingReview;
                         _context.Orders.Update(orderByPhone);
                         _context.Payments.Update(payment);

@@ -51,16 +51,18 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
         public async Task<List<PendingReviewPaymentDTO>> GetPendingReviewPaymentsAsync()
         {
             var payments = await _context.Payments
+                .Include(p => p.Client)
+                .Include(p => p.Orders)
                 .AsNoTracking()
                 .Where(p => p.Status == PaymentStatus.PendingReview)
                 .Select(p => new PendingReviewPaymentDTO
                 {
-                    PaymentId = p.Id,  // Cambio: p.Id
+                    PaymentId = p.Id, 
                     Amount = p.Amount,
                     Reference = p.Reference,
                     ClientPhone = p.Client.Phone,
                     ClientName = p.Client.Name,
-                    OrderId = p.Orders.FirstOrDefault() != null ? p.Orders.FirstOrDefault().Id : null,
+                    OrderId = p.Orders.FirstOrDefault().Id,
                     OrderAmount = p.Orders.FirstOrDefault() != null ? p.Orders.FirstOrDefault().Amount : null,
                     Difference = p.Orders.FirstOrDefault() != null ? p.Orders.FirstOrDefault().Amount - p.Amount : null,
                     ReceivedAt = p.ReceivedAt
@@ -85,6 +87,11 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
             if (approved)
             {
                 payment.Status = PaymentStatus.Valid;
+                foreach (var order in payment.Orders)
+                {
+                    order.State = "PAGADA_REVISADA";
+                    _context.Orders.Update(order);
+                }
             }
             else
             {
