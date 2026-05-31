@@ -72,7 +72,7 @@ fun SinpeSimulatorApp() {
         OutlinedTextField(
             value = de,
             onValueChange = { de = it },
-            label = { Text("Número Destino") },
+            label = { Text("Remitente: ") },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text),
             modifier = Modifier.fillMaxWidth()
         )
