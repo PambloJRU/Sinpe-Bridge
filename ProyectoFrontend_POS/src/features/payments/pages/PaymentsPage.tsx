@@ -13,6 +13,7 @@ type Payment = {
 	syncState: SyncState
 	syncMessage?: string
 	orderId?: number
+	orderState?: string
 	createdAt?: number
 }
 
@@ -154,6 +155,31 @@ function PaymentsPage() {
 							clearTimeout(timer)
 							pollersRef.current.delete(orderId)
 						}
+					} else if (data.state === 'PAGO_PARCIAL') {
+						updatePayment(paymentId, {
+							orderState: 'PAGO_PARCIAL',
+							status: 'Pending',
+							syncState: 'syncing',
+							syncMessage: 'Pago parcial, en revisión del admin...',
+						})
+						const timer = pollersRef.current.get(orderId)
+						if (timer) {
+							clearTimeout(timer)
+							pollersRef.current.delete(orderId)
+						}
+
+					} else if (data.state === 'PAGADA_REVISADA') {
+						updatePayment(paymentId, {
+							status: 'Valid',
+							syncState: 'idle',
+							syncMessage: 'Aprobado por revisión manual',
+							reference: generateReference(new Date()),
+						})
+						const timer = pollersRef.current.get(orderId)
+						if (timer) {
+							clearInterval(timer)
+							pollersRef.current.delete(orderId)
+						}
 					} else if (data.state === 'RECHAZADA') {
 						updatePayment(paymentId, {
 							status: 'Rejected',
@@ -172,13 +198,12 @@ function PaymentsPage() {
 			}
 		}
 
-		//const timer = setInterval(pollStatus, 5000)
-		//pollersRef.current.set(orderId, timer)
-		//pollStatus()
+		const timer = setInterval(pollStatus, 5000)
+		pollersRef.current.set(orderId, timer)
+		pollStatus()
 		const pollWithTimeout = async () => {
 			await pollStatus();
 
-			// Solo vuelve a programar el siguiente intento si la orden (no ha sido cancelada o pagada)
 			if (pollersRef.current.has(orderId)) {
 				const timer = setTimeout(pollWithTimeout, 5000);
 				pollersRef.current.set(orderId, timer);
@@ -416,7 +441,10 @@ function PaymentsPage() {
 											<span
 												className={`status-chip status-${payment.status.toLowerCase()}`}
 											>
-												{statusLabels[payment.status]}
+												{payment.orderState === 'PAGO_PARCIAL'
+													? 'En Revisión'
+													: statusLabels[payment.status]
+												}
 											</span>
 										</td>
 										<td>

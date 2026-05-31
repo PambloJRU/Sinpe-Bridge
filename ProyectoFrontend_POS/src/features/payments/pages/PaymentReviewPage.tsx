@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
 
 type PendingReviewPayment = {
 	paymentId: number
@@ -73,6 +74,12 @@ function PaymentsReviewPage() {
 					</p>
 				</div>
 			</header>
+
+			<div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '15px' }}>
+				<Link to="/">
+					<button className="ghost">Volver</button>
+				</Link>
+			</div>
 
 			<section className="pos-card pos-table">
 				{message && <p className="form-error">{message}</p>}
