@@ -165,6 +165,18 @@ input:focus {
   color: var(--ink-muted);
 }
 
+.phone-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.phone-status-detail {
+  font-size: 0.75rem;
+  color: var(--ink-muted);
+}
+
 .pos-card {
   background: var(--surface);
   border: 1px solid var(--border);
