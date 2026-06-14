@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -16,8 +17,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import android.util.Log
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -25,13 +30,20 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.gruposinpe.proyectosinpe_kotlin.model.PhoneHeartbeatRequest
 import com.gruposinpe.proyectosinpe_kotlin.model.SmsRequest
 import com.gruposinpe.proyectosinpe_kotlin.network.RetrofitClient
 import com.gruposinpe.proyectosinpe_kotlin.receiver.SmsReceiver
 import com.gruposinpe.proyectosinpe_kotlin.receiver.SmsReceiverCallback
+import java.time.Instant
 
 
 class MainActivity : ComponentActivity(), SmsReceiverCallback {
+    private val heartbeatIntervalMs = 30000L
+    private val deviceId by lazy {
+        Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) ?: "unknown"
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -39,6 +51,7 @@ class MainActivity : ComponentActivity(), SmsReceiverCallback {
         SmsReceiver.callback = this
 
         requestSmsPermission()
+        startHeartbeat()
 
         enableEdgeToEdge()
         setContent {
@@ -56,6 +69,35 @@ class MainActivity : ComponentActivity(), SmsReceiverCallback {
                     Text("Simular Envío de SINPE")
                 }
             }
+        }
+    }
+
+    private fun startHeartbeat() {
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                while (isActive) {
+                    sendHeartbeat()
+                    delay(heartbeatIntervalMs)
+                }
+            }
+        }
+    }
+
+    private suspend fun sendHeartbeat() {
+        val heartbeat = PhoneHeartbeatRequest(
+            deviceId = deviceId,
+            sentAtUtc = Instant.now().toString()
+        )
+
+        try {
+            val response = RetrofitClient.instance.sendHeartbeat(heartbeat)
+            if (response.isSuccessful) {
+                Log.d("SINPE_BRIDGE", "Heartbeat ok")
+            } else {
+                Log.e("SINPE_BRIDGE", "Heartbeat error: ${response.code()}")
+            }
+        } catch (e: Exception) {
+            Log.e("SINPE_BRIDGE", "Heartbeat error: ${e.message}")
         }
     }
 

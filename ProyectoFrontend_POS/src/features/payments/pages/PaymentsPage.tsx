@@ -1,4 +1,4 @@
-﻿import { useMemo, useState, useRef, type FormEvent } from 'react'
+﻿import { useEffect, useMemo, useState, useRef, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 
 type PaymentStatus = 'Pending' | 'Valid' | 'Rejected'
@@ -15,6 +15,12 @@ type Payment = {
 	orderId?: number
 	orderState?: string
 	createdAt?: number
+}
+
+type PhoneConnectionStatus = {
+	isConnected: boolean
+	lastHeartbeatUtc?: string | null
+	minutesSinceLastHeartbeat?: number | null
 }
 
 const formatAmount = (value: number) =>
@@ -44,6 +50,7 @@ const referencePlaceholder = 'Esperando SMS'
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined) ??
 	'http://localhost:5198'
 const ordersEndpoint = `${apiBaseUrl.replace(/\/$/, '')}/api/Orders`
+const phoneStatusEndpoint = `${apiBaseUrl.replace(/\/$/, '')}/api/phone/status`
 
 const getReferenceLabel = (payment: Payment) => {
 	if (payment.reference) return payment.reference
@@ -60,6 +67,39 @@ function PaymentsPage() {
 	const [nextId, setNextId] = useState(1)
 	const pollersRef = useRef<Map<number, ReturnType<typeof setInterval>>>(new Map())
 	const [showMenu, setShowMenu] = useState(false)
+	const [phoneStatus, setPhoneStatus] = useState<PhoneConnectionStatus | null>(null)
+	const [phoneStatusError, setPhoneStatusError] = useState('')
+
+	useEffect(() => {
+		let active = true
+
+		const loadPhoneStatus = async () => {
+			try {
+				const response = await fetch(phoneStatusEndpoint)
+				if (!response.ok) {
+					throw new Error('status error')
+				}
+
+				const data = (await response.json()) as PhoneConnectionStatus
+				if (active) {
+					setPhoneStatus(data)
+					setPhoneStatusError('')
+				}
+			} catch (error) {
+				if (active) {
+					setPhoneStatusError('Sin respuesta del servidor')
+				}
+			}
+		}
+
+		loadPhoneStatus()
+		const timer = setInterval(loadPhoneStatus, 10000)
+
+		return () => {
+			active = false
+			clearInterval(timer)
+		}
+	}, [])
 
 	const stats = useMemo(() => {
 		return payments.reduce(
@@ -272,6 +312,22 @@ function PaymentsPage() {
 		)
 	}
 
+	const phoneStatusClass = phoneStatus
+		? phoneStatus.isConnected
+			? 'status-valid'
+			: 'status-rejected'
+		: 'status-muted'
+	const phoneStatusLabel = phoneStatus
+		? phoneStatus.isConnected
+			? 'Telefono conectado'
+			: 'Telefono sin conexion'
+		: 'Telefono sin datos'
+	const phoneStatusDetail = phoneStatusError
+		? phoneStatusError
+		: phoneStatus?.minutesSinceLastHeartbeat != null
+			? `Ultimo ping ${phoneStatus.minutesSinceLastHeartbeat.toFixed(1)} min`
+			: 'Sin ping'
+
 	return (
 		<div className="pos-shell">
 			<header className="pos-header">
@@ -281,6 +337,10 @@ function PaymentsPage() {
 					<p className="pos-subtitle">
 						Cree ordenes con monto y telefono. La referencia llega con el SMS.
 					</p>
+					<div className="phone-status">
+						<span className={`status-chip ${phoneStatusClass}`}>{phoneStatusLabel}</span>
+						<span className="phone-status-detail">{phoneStatusDetail}</span>
+					</div>
 				</div>
 				<div className="pos-card pos-summary">
 					<p className="summary-title">Resumen</p>

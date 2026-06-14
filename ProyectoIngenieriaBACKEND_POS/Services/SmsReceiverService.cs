@@ -146,7 +146,6 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
                 {
                     Console.WriteLine($"[SMS] Sin coincidencia exacta, buscando por teléfono");
                     var orderByPhone = await _context.Orders
-                        .AsNoTracking()
                         .Where(o =>
                             o.Phone == client.Phone &&
                             !o.PaymentId.HasValue &&
