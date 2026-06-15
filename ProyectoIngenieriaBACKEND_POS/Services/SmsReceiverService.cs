@@ -1,9 +1,11 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.SignalR;
 using ProyectoIngenieriaBACKEND_POS.Data;
 using ProyectoIngenieriaBACKEND_POS.Models.Dtos;
 using ProyectoIngenieriaBACKEND_POS.Models.Entities;
 using ProyectoIngenieriaBACKEND_POS.Models.Enums;
 using ProyectoIngenieriaBACKEND_POS.Services.Interfaces;
+using ProyectoIngenieriaBACKEND_POS.Hubs;
 using System.Globalization;
 using System.Text.RegularExpressions;
 
@@ -13,13 +15,16 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
     {
         private readonly AppDbContext _context;
         private readonly IAuditLogService _auditLogService;
+        private readonly IHubContext<NotificationHub> _hubContext;
 
     public SmsReceiverService(
         AppDbContext context,
-        IAuditLogService auditLogService)
+        IAuditLogService auditLogService,
+        IHubContext<NotificationHub> hubContext)
         {
             _context = context;
             _auditLogService = auditLogService;
+            _hubContext = hubContext;
         }
 
         private static readonly Regex SinpeSmsRegex = new Regex(
@@ -141,6 +146,13 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
                     _context.Orders.Update(order);
                     _context.Payments.Update(payment);
                     await _context.SaveChangesAsync();
+
+                    await _hubContext.Clients.All.SendAsync("OrderStatus", new
+                    {
+                        orderId = order.Id,
+                        state = order.State,
+                        paymentId = order.PaymentId
+                    });
                 }
                 else
                 {
@@ -160,6 +172,13 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
                         _context.Orders.Update(orderByPhone);
                         _context.Payments.Update(payment);
                         await _context.SaveChangesAsync();
+
+                        await _hubContext.Clients.All.SendAsync("OrderStatus", new
+                        {
+                            orderId = orderByPhone.Id,
+                            state = orderByPhone.State,
+                            paymentId = orderByPhone.PaymentId
+                        });
                     }
                     else
                     {

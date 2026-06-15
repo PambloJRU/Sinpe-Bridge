@@ -1,19 +1,23 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.SignalR;
 using ProyectoIngenieriaBACKEND_POS.Data;
 using ProyectoIngenieriaBACKEND_POS.Models.Dtos;
 using ProyectoIngenieriaBACKEND_POS.Models.Entities;
 using ProyectoIngenieriaBACKEND_POS.Models.Enums;
 using ProyectoIngenieriaBACKEND_POS.Services.Interfaces;
+using ProyectoIngenieriaBACKEND_POS.Hubs;
 
 namespace ProyectoIngenieriaBACKEND_POS.Services
 {
     public class PaymentService : IPaymentService
     {
         private readonly AppDbContext _context;
+        private readonly IHubContext<NotificationHub> _hubContext;
 
-        public PaymentService(AppDbContext context)
+        public PaymentService(AppDbContext context, IHubContext<NotificationHub> hubContext)
         {
             _context = context;
+            _hubContext = hubContext;
         }
 
         public Task<List<PaymentInfoDTO>> whyFUNCA()
@@ -107,6 +111,25 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
 
             _context.Payments.Update(payment);
             await _context.SaveChangesAsync();
+
+            await _hubContext.Clients.All.SendAsync("PaymentReviewed", new
+            {
+                paymentId = payment.Id,
+                approved = approved
+            });
+
+            if (approved)
+            {
+                foreach (var order in payment.Orders)
+                {
+                    await _hubContext.Clients.All.SendAsync("OrderStatus", new
+                    {
+                        orderId = order.Id,
+                        state = order.State,
+                        paymentId = order.PaymentId
+                    });
+                }
+            }
         }
     }
 }
