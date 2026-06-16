@@ -9,7 +9,7 @@ import java.util.concurrent.TimeUnit
 object RetrofitClient {
     // IMPORTANTE: la IP esta en el archivo local.properties, modifiquenla cada uno como les convenga
 
-    private val BASE_URL = BuildConfig.BASE_URL
+    private val BASE_URL = BuildConfig.BASE_URL+"/"
 
     val okHttpClient = OkHttpClient.Builder()
         .connectTimeout(20, TimeUnit.SECONDS) // Aumentado a 30 seg

@@ -1,9 +1,11 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.SignalR;
 using ProyectoIngenieriaBACKEND_POS.Data;
 using ProyectoIngenieriaBACKEND_POS.Models.Dtos;
 using ProyectoIngenieriaBACKEND_POS.Models.Entities;
 using ProyectoIngenieriaBACKEND_POS.Models.Enums;
 using ProyectoIngenieriaBACKEND_POS.Services.Interfaces;
+using ProyectoIngenieriaBACKEND_POS.Hubs;
 
 namespace ProyectoIngenieriaBACKEND_POS.Services
 {
@@ -12,15 +14,18 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
         private readonly AppDbContext _context;
         private readonly IAuditLogService _auditLogService;
         private readonly IConfiguration _configuration;
+        private readonly IHubContext<NotificationHub> _hubContext;
 
         public PhoneConnectionService(
             AppDbContext context,
             IAuditLogService auditLogService,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            IHubContext<NotificationHub> hubContext)
         {
             _context = context;
             _auditLogService = auditLogService;
             _configuration = configuration;
+            _hubContext = hubContext;
         }
 
         public async Task<PhoneConnectionStatusDTO> RegisterHeartbeatAsync(PhoneHeartbeatRequestDTO request)
@@ -37,6 +42,15 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
             _context.PhoneConnections.Update(connection);
             await _context.SaveChangesAsync();
 
+            var status = MapStatus(connection, nowUtc);
+
+            await _hubContext.Clients.All.SendAsync("PhoneStatus", new
+            {
+                isConnected = status.IsConnected,
+                lastHeartbeatUtc = status.LastHeartbeatUtc,
+                minutesSinceLastHeartbeat = status.MinutesSinceLastHeartbeat
+            });
+
             if (!wasConnected)
             {
                 await _auditLogService.LogEventAsync(
@@ -45,7 +59,7 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
                     "Telefono receptor reconectado.");
             }
 
-            return MapStatus(connection, nowUtc);
+            return status;
         }
 
         public async Task<PhoneConnectionStatusDTO> GetStatusAsync()
@@ -80,6 +94,13 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
 
                 _context.PhoneConnections.Update(connection);
                 await _context.SaveChangesAsync(cancellationToken);
+
+                await _hubContext.Clients.All.SendAsync("PhoneStatus", new
+                {
+                    isConnected = false,
+                    lastHeartbeatUtc = connection.LastHeartbeatUtc,
+                    minutesSinceLastHeartbeat = Math.Round((nowUtc - connection.LastHeartbeatUtc).TotalMinutes, 2)
+                });
 
                 await _auditLogService.LogEventAsync(
                     EventType.PhoneDisconnected,

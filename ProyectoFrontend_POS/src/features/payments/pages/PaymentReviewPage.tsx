@@ -70,7 +70,7 @@ function PaymentsReviewPage() {
 					<p className="pos-kicker">SINPE POS</p>
 					<h1>Pagos en Revisión</h1>
 					<p className="pos-subtitle">
-						Revisa y aprueba o rechaza pagos sospechosos.
+						Pagos pendientes de asociación o revisión manual.
 					</p>
 				</div>
 			</header>

@@ -1,19 +1,23 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.SignalR;
 using ProyectoIngenieriaBACKEND_POS.Data;
 using ProyectoIngenieriaBACKEND_POS.Models.Dtos;
 using ProyectoIngenieriaBACKEND_POS.Models.Entities;
 using ProyectoIngenieriaBACKEND_POS.Models.Enums;
 using ProyectoIngenieriaBACKEND_POS.Services.Interfaces;
+using ProyectoIngenieriaBACKEND_POS.Hubs;
 
 namespace ProyectoIngenieriaBACKEND_POS.Services
 {
     public class PaymentService : IPaymentService
     {
         private readonly AppDbContext _context;
+        private readonly IHubContext<NotificationHub> _hubContext;
 
-        public PaymentService(AppDbContext context)
+        public PaymentService(AppDbContext context, IHubContext<NotificationHub> hubContext)
         {
             _context = context;
+            _hubContext = hubContext;
         }
 
         public Task<List<PaymentInfoDTO>> whyFUNCA()
@@ -54,7 +58,7 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
                 .Include(p => p.Client)
                 .Include(p => p.Orders)
                 .AsNoTracking()
-                .Where(p => p.Status == PaymentStatus.PendingReview)
+                .Where(p => p.Status == PaymentStatus.PendingReview || p.Status == PaymentStatus.Pending)
                 .Select(p => new PendingReviewPaymentDTO
                 {
                     PaymentId = p.Id, 
@@ -81,7 +85,7 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
             if (payment == null)
                 throw new ArgumentException("Pago no encontrado");
 
-            if (payment.Status != PaymentStatus.PendingReview)
+            if (payment.Status != PaymentStatus.PendingReview && payment.Status != PaymentStatus.Pending)
                 throw new InvalidOperationException("El pago no está en revisión");
 
             if (approved)
@@ -107,6 +111,25 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
 
             _context.Payments.Update(payment);
             await _context.SaveChangesAsync();
+
+            await _hubContext.Clients.All.SendAsync("PaymentReviewed", new
+            {
+                paymentId = payment.Id,
+                approved = approved
+            });
+
+            if (approved)
+            {
+                foreach (var order in payment.Orders)
+                {
+                    await _hubContext.Clients.All.SendAsync("OrderStatus", new
+                    {
+                        orderId = order.Id,
+                        state = order.State,
+                        paymentId = order.PaymentId
+                    });
+                }
+            }
         }
     }
 }

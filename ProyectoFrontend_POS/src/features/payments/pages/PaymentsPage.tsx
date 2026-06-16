@@ -1,5 +1,11 @@
-﻿import { useEffect, useMemo, useState, useRef, type FormEvent } from 'react'
+﻿import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
+import {
+	startSignalRConnection,
+	stopSignalRConnection,
+	type OrderStatusPayload,
+	type PhoneStatusPayload,
+} from '../services/signalrService'
 
 type PaymentStatus = 'Pending' | 'Valid' | 'Rejected'
 type SyncState = 'idle' | 'syncing' | 'failed'
@@ -15,6 +21,7 @@ type Payment = {
 	orderId?: number
 	orderState?: string
 	createdAt?: number
+	autoMatch?: boolean
 }
 
 type PhoneConnectionStatus = {
@@ -50,9 +57,9 @@ const referencePlaceholder = 'Esperando SMS'
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined) ??
 	'http://localhost:5198'
 const ordersEndpoint = `${apiBaseUrl.replace(/\/$/, '')}/api/Orders`
-const phoneStatusEndpoint = `${apiBaseUrl.replace(/\/$/, '')}/api/phone/status`
 
 const getReferenceLabel = (payment: Payment) => {
+	if (payment.autoMatch) return 'Auto-asociada'
 	if (payment.reference) return payment.reference
 	if (payment.status === 'Valid') return 'Asociada'
 	if (payment.status === 'Rejected') return 'No recibida'
@@ -65,39 +72,68 @@ function PaymentsPage() {
 	const [phoneInput, setPhoneInput] = useState('')
 	const [formError, setFormError] = useState('')
 	const [nextId, setNextId] = useState(1)
-	const pollersRef = useRef<Map<number, ReturnType<typeof setInterval>>>(new Map())
-	const [showMenu, setShowMenu] = useState(false)
 	const [phoneStatus, setPhoneStatus] = useState<PhoneConnectionStatus | null>(null)
 	const [phoneStatusError, setPhoneStatusError] = useState('')
 
 	useEffect(() => {
 		let active = true
 
-		const loadPhoneStatus = async () => {
+		const initSignalR = async () => {
 			try {
-				const response = await fetch(phoneStatusEndpoint)
-				if (!response.ok) {
-					throw new Error('status error')
-				}
+				await startSignalRConnection({
+					onOrderStatus: (payload: OrderStatusPayload) => {
+						if (!active) return
+						setPayments((previous) =>
+							previous.map((payment) => {
+								const matchesByOrderId = payment.orderId === payload.orderId
+								const matchesByAutoMatch = payload.autoMatch && payment.syncState === 'syncing' && !payment.orderId
 
-				const data = (await response.json()) as PhoneConnectionStatus
+								if (!matchesByOrderId && !matchesByAutoMatch) return payment
+
+								const stateMap: Record<string, { status: PaymentStatus; syncState: SyncState; syncMessage: string; orderState?: string }> = {
+									PAGADA: { status: 'Valid', syncState: 'idle', syncMessage: '' },
+									PAGO_PARCIAL: { status: 'Pending', syncState: 'syncing', syncMessage: 'Pago parcial, en revisión del admin...', orderState: 'PAGO_PARCIAL' },
+									PAGADA_REVISADA: { status: 'Valid', syncState: 'idle', syncMessage: 'Aprobado por revisión manual' },
+									RECHAZADA: { status: 'Rejected', syncState: 'failed', syncMessage: 'Pago rechazado' },
+								}
+
+								const mapping = stateMap[payload.state]
+								if (!mapping) return payment
+
+								return {
+									...payment,
+									...mapping,
+									orderId: payload.orderId,
+									autoMatch: payload.autoMatch || payment.autoMatch,
+									reference: mapping.status === 'Valid' && !payment.reference
+										? generateReference(new Date())
+										: payment.reference,
+								}
+							})
+						)
+					},
+					onPhoneStatus: (payload: PhoneStatusPayload) => {
+						if (!active) return
+						setPhoneStatus({
+							isConnected: payload.isConnected,
+							lastHeartbeatUtc: payload.lastHeartbeatUtc,
+							minutesSinceLastHeartbeat: payload.minutesSinceLastHeartbeat,
+						})
+						setPhoneStatusError('')
+					},
+				})
+			} catch {
 				if (active) {
-					setPhoneStatus(data)
-					setPhoneStatusError('')
-				}
-			} catch (error) {
-				if (active) {
-					setPhoneStatusError('Sin respuesta del servidor')
+					setPhoneStatusError('Error de conexión SignalR')
 				}
 			}
 		}
 
-		loadPhoneStatus()
-		const timer = setInterval(loadPhoneStatus, 10000)
+		initSignalR()
 
 		return () => {
 			active = false
-			clearInterval(timer)
+			stopSignalRConnection()
 		}
 	}, [])
 
@@ -123,8 +159,6 @@ function PaymentsPage() {
 	}
 
 	const submitOrder = async (id: number, phone: string, amount: number) => {
-		const createdAt = Date.now()
-
 		try {
 			const response = await fetch(ordersEndpoint, {
 				method: 'POST',
@@ -145,10 +179,7 @@ function PaymentsPage() {
 				status: 'Pending',
 				syncState: 'syncing',
 				syncMessage: 'Esperando SINPE...',
-				createdAt,
 			})
-
-			startPollingOrder(responseData.orderId, id, createdAt)
 		} catch (error) {
 			const message = error instanceof Error ? error.message : 'Error de conexion.'
 			updatePayment(id, {
@@ -158,100 +189,6 @@ function PaymentsPage() {
 			})
 		}
 	}
-
-	const startPollingOrder = (orderId: number, paymentId: number, createdAt: number) => {
-		const TIMEOUT_MS = 5 * 60 * 1000
-
-		const pollStatus = async () => {
-			try {
-				const elapsed = Date.now() - createdAt
-				if (elapsed > TIMEOUT_MS) {
-					updatePayment(paymentId, {
-						status: 'Rejected',
-						syncState: 'failed',
-						syncMessage: 'Pago no recibido en 5 minutos',
-					})
-					const timer = pollersRef.current.get(orderId)
-					if (timer) {
-						clearInterval(timer)
-						pollersRef.current.delete(orderId)
-					}
-					return
-				}
-
-				const response = await fetch(`${ordersEndpoint}/${orderId}/status`)
-				if (response.ok) {
-					const data = await response.json()
-
-					if (data.state === 'PAGADA') {
-						updatePayment(paymentId, {
-							status: 'Valid',
-							syncState: 'idle',
-							syncMessage: '',
-							reference: generateReference(new Date()),
-						})
-						const timer = pollersRef.current.get(orderId)
-						if (timer) {
-							clearTimeout(timer)
-							pollersRef.current.delete(orderId)
-						}
-					} else if (data.state === 'PAGO_PARCIAL') {
-						updatePayment(paymentId, {
-							orderState: 'PAGO_PARCIAL',
-							status: 'Pending',
-							syncState: 'syncing',
-							syncMessage: 'Pago parcial, en revisión del admin...',
-						})
-						const timer = pollersRef.current.get(orderId)
-						if (timer) {
-							clearTimeout(timer)
-							pollersRef.current.delete(orderId)
-						}
-
-					} else if (data.state === 'PAGADA_REVISADA') {
-						updatePayment(paymentId, {
-							status: 'Valid',
-							syncState: 'idle',
-							syncMessage: 'Aprobado por revisión manual',
-							reference: generateReference(new Date()),
-						})
-						const timer = pollersRef.current.get(orderId)
-						if (timer) {
-							clearInterval(timer)
-							pollersRef.current.delete(orderId)
-						}
-					} else if (data.state === 'RECHAZADA') {
-						updatePayment(paymentId, {
-							status: 'Rejected',
-							syncState: 'failed',
-							syncMessage: 'Pago rechazado',
-						})
-						const timer = pollersRef.current.get(orderId)
-						if (timer) {
-							clearTimeout(timer)
-							pollersRef.current.delete(orderId)
-						}
-					}
-				}
-			} catch (error) {
-				console.error('Error polling:', error)
-			}
-		}
-
-		const timer = setInterval(pollStatus, 5000)
-		pollersRef.current.set(orderId, timer)
-		pollStatus()
-		const pollWithTimeout = async () => {
-			await pollStatus();
-
-			if (pollersRef.current.has(orderId)) {
-				const timer = setTimeout(pollWithTimeout, 5000);
-				pollersRef.current.set(orderId, timer);
-			}
-		}
-	}
-
-
 
 	const handleCreate = (event: FormEvent<HTMLFormElement>) => {
 		event.preventDefault()
@@ -361,67 +298,32 @@ function PaymentsPage() {
 						<p className="pos-subtitle">Monto y telefono del cliente.</p>
 					</div>
 
-					<div style={{ position: 'relative' }}>
-						<button
-							type="button"
-							className="ghost"
-							onClick={() => setShowMenu(!showMenu)}
-						>
-							⋮
-						</button>
+					<div className="pos-table-top" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <div>
+        <h2>Crear orden</h2>
+        <p className="pos-subtitle">Monto y telefono del cliente.</p>
+    </div>
 
-						{showMenu && (
-							<div
-								style={{
-									position: 'absolute',
-									right: 0,
-									top: '45px',
-									background: 'white',
-									border: '1px solid #ddd',
-									borderRadius: '10px',
-									padding: '10px',
-									boxShadow: '0 8px 20px rgba(0,0,0,0.1)',
-									zIndex: 100,
+    <div style={{ display: 'flex', gap: '12px' }}>
+        <Link to="/historial" style={{ textDecoration: 'none' }}>
+            <button type="button" className="ghost" style={{ cursor: 'pointer', padding: '8px 16px' }}>
+                Historial
+            </button>
+        </Link>
 
-									display: 'flex',
-									flexDirection: 'column',
-									gap: '10px'
-								}}
-							>
-								<Link
-									to="/historial"
-									style={{
-										textDecoration: 'none',
-										color: '#333',
-										fontWeight: 500
-									}}
-								>
-									Historial
-								</Link>
+        <Link to="/pagos" style={{ textDecoration: 'none' }}>
+            <button type="button" className="ghost" style={{ cursor: 'pointer', padding: '8px 16px' }}>
+                Pagos
+            </button>
+        </Link>
 
-								<Link
-									to="/pagos"
-									style={{
-										textDecoration: 'none',
-										color: '#333',
-										fontWeight: 500
-									}}>
-									Pagos
-								</Link>
-
-								<Link
-									to="/pagos-revision"
-									style={{
-										textDecoration: 'none',
-										color: '#333',
-										fontWeight: 500
-									}}
-								>
-									Pagos en Revisión
-								</Link>
-							</div>
-						)}
-					</div>
+        <Link to="/pagos-revision" style={{ textDecoration: 'none' }}>
+            <button type="button" className="ghost" style={{ cursor: 'pointer', padding: '8px 16px' }}>
+                Pagos en Revisión
+            </button>
+        </Link>
+    </div>
+</div>
 				</div>
 
 				<form className="pos-form-inline" onSubmit={handleCreate}>
