@@ -12,6 +12,7 @@ export type OrderStatusPayload = {
 	orderId: number
 	state: string
 	paymentId: number | null
+	autoMatch?: boolean
 }
 
 export type PhoneStatusPayload = {

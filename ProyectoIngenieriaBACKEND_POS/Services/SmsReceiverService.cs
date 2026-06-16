@@ -182,7 +182,7 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
                     }
                     else
                     {
-                        payment.Status = PaymentStatus.PendingReview;
+                        payment.Status = PaymentStatus.Pending;
                         _context.Payments.Update(payment);
                         await _context.SaveChangesAsync();
                     }

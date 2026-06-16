@@ -22,6 +22,7 @@ builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IPhoneConnectionService, PhoneConnectionService>();
 builder.Services.AddHostedService<PhoneConnectionMonitorService>();
+builder.Services.AddHostedService<PendingPaymentMonitorService>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 

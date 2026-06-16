@@ -58,7 +58,7 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
                 .Include(p => p.Client)
                 .Include(p => p.Orders)
                 .AsNoTracking()
-                .Where(p => p.Status == PaymentStatus.PendingReview)
+                .Where(p => p.Status == PaymentStatus.PendingReview || p.Status == PaymentStatus.Pending)
                 .Select(p => new PendingReviewPaymentDTO
                 {
                     PaymentId = p.Id, 
@@ -85,7 +85,7 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
             if (payment == null)
                 throw new ArgumentException("Pago no encontrado");
 
-            if (payment.Status != PaymentStatus.PendingReview)
+            if (payment.Status != PaymentStatus.PendingReview && payment.Status != PaymentStatus.Pending)
                 throw new InvalidOperationException("El pago no está en revisión");
 
             if (approved)
