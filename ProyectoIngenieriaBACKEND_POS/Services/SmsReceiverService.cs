@@ -6,6 +6,7 @@ using ProyectoIngenieriaBACKEND_POS.Models.Enums;
 using ProyectoIngenieriaBACKEND_POS.Services.Interfaces;
 using System.Globalization;
 using System.Text.RegularExpressions;
+using System.Text.Json;
 
 namespace ProyectoIngenieriaBACKEND_POS.Services
 {
@@ -14,9 +15,9 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
         private readonly AppDbContext _context;
         private readonly IAuditLogService _auditLogService;
 
-    public SmsReceiverService(
-        AppDbContext context,
-        IAuditLogService auditLogService)
+        public SmsReceiverService(
+            AppDbContext context,
+            IAuditLogService auditLogService)
         {
             _context = context;
             _auditLogService = auditLogService;
@@ -58,7 +59,17 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
                 await _auditLogService.LogEventAsync(
                     EventType.PaymentExpired,
                     RiskLevel.Medium,
-                    $"Pago rechazado por antigüedad. Referencia: {result.Reference}"
+                    $"Pago rechazado por antigüedad. Referencia: {result.Reference}",
+                    BuildAuditData(
+                        result.Reference,
+                        result.Amount,
+                        smsData.SenderNumber,
+                        "Pago fuera del tiempo permitido de 15 minutos.",
+                        "SmsReceiverService",
+                        result.PayerName,
+                        smsData.ReceivedAt,
+                        result.PaymentDateTime
+                    )
                 );
 
                 throw new InvalidOperationException("PAYMENT_EXPIRED");
@@ -73,7 +84,6 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
                 {
                     Cellphone = smsData.SenderNumber,
                     IdClient = clientTemp?.Id
-
                 };
 
                 _context.DuplecateReferences.Add(dupe);
@@ -82,8 +92,18 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
                 await _auditLogService.LogEventAsync(
                     EventType.DuplicateReference,
                     RiskLevel.High,
-                    $"Referencia duplicada detectada: {result.Reference} desde {smsData.SenderNumber}"
-                ); 
+                    $"Referencia duplicada detectada: {result.Reference} desde {smsData.SenderNumber}",
+                    BuildAuditData(
+                        result.Reference,
+                        result.Amount,
+                        smsData.SenderNumber,
+                        "La referencia SINPE ya había sido registrada previamente.",
+                        "SmsReceiverService",
+                        result.PayerName,
+                        smsData.ReceivedAt,
+                        result.PaymentDateTime
+                    )
+                );
 
                 throw new InvalidOperationException("DUPLICATE_REFERENCE");
             }
@@ -115,7 +135,6 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
 
             _context.Payments.Add(payment);
             await _context.SaveChangesAsync();
-
 
             //acá se busca una orden de pago que coincida con los datos del pago recibido y se le cambia el estado a Válido
             try
@@ -160,12 +179,84 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
                         _context.Orders.Update(orderByPhone);
                         _context.Payments.Update(payment);
                         await _context.SaveChangesAsync();
+
+                        await _auditLogService.LogEventAsync(
+                            EventType.AmountMismatch,
+                            RiskLevel.High,
+                            $"Monto incorrecto detectado. Referencia: {payment.Reference}",
+                            BuildAuditData(
+                                payment.Reference,
+                                payment.Amount,
+                                client.Phone,
+                                "El teléfono coincide con una orden pendiente, pero el monto recibido no coincide.",
+                                "SmsReceiverService",
+                                result.PayerName,
+                                smsData.ReceivedAt,
+                                result.PaymentDateTime,
+                                orderByPhone.Amount
+                            ),
+                            payment.Id,
+                            orderByPhone.Id
+                        );
+
+                        await _auditLogService.LogEventAsync(
+                            EventType.ManualReviewRequired,
+                            RiskLevel.Medium,
+                            $"Pago enviado a revisión manual por diferencia de monto. Referencia: {payment.Reference}",
+                            BuildAuditData(
+                                payment.Reference,
+                                payment.Amount,
+                                client.Phone,
+                                "Se requiere revisión manual porque el monto recibido no coincide con el monto de la orden.",
+                                "SmsReceiverService",
+                                result.PayerName,
+                                smsData.ReceivedAt,
+                                result.PaymentDateTime,
+                                orderByPhone.Amount
+                            ),
+                            payment.Id,
+                            orderByPhone.Id
+                        );
                     }
                     else
                     {
                         payment.Status = PaymentStatus.PendingReview;
                         _context.Payments.Update(payment);
                         await _context.SaveChangesAsync();
+
+                        await _auditLogService.LogEventAsync(
+                            EventType.PaymentWithoutOrder,
+                            RiskLevel.Medium,
+                            $"Pago recibido sin orden asociada. Referencia: {payment.Reference}",
+                            BuildAuditData(
+                                payment.Reference,
+                                payment.Amount,
+                                client.Phone,
+                                "No existe ninguna orden pendiente asociada al teléfono y monto del pago.",
+                                "SmsReceiverService",
+                                result.PayerName,
+                                smsData.ReceivedAt,
+                                result.PaymentDateTime
+                            ),
+                            payment.Id
+                        );
+
+                        await _auditLogService.LogEventAsync(
+                            EventType.ManualReviewRequired,
+                            RiskLevel.Medium,
+                            $"Pago enviado a revisión manual por no tener orden asociada. Referencia: {payment.Reference}",
+                            BuildAuditData(
+                                payment.Reference,
+                                payment.Amount,
+                                client.Phone,
+                                "Se requiere revisión manual porque el pago no pudo asociarse automáticamente a una orden.",
+                                "SmsReceiverService",
+                                result.PayerName,
+                                smsData.ReceivedAt,
+                                result.PaymentDateTime
+                            ),
+                            payment.Id
+                        );
                     }
                 }
             }
@@ -174,8 +265,32 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
                 throw;
             }
 
-
             return result;
+        }
+
+        private static string BuildAuditData(
+            string reference,
+            decimal amount,
+            string phone,
+            string reason,
+            string source,
+            string? payerName = null,
+            DateTime? receivedAt = null,
+            DateTime? paymentDateTime = null,
+            decimal? orderAmount = null)
+        {
+            return JsonSerializer.Serialize(new
+            {
+                Reference = reference,
+                Amount = amount,
+                Phone = phone,
+                Reason = reason,
+                Source = source,
+                PayerName = payerName,
+                ReceivedAt = receivedAt,
+                PaymentDateTime = paymentDateTime,
+                OrderAmount = orderAmount
+            });
         }
 
         private static bool TryParseAmount(string amountText, out decimal amount)
@@ -205,13 +320,11 @@ namespace ProyectoIngenieriaBACKEND_POS.Services
 
         private static bool IsPaymentWithin15Minutes(DateTime paymentDateTime)
         {
-            /*var currentTime = DateTime.Now;
+            var currentTime = DateTime.Now;
             var difference = currentTime - paymentDateTime;
 
             return difference.TotalMinutes >= 0 &&
-                   difference.TotalMinutes <= 15;*/
-            return true;
+                   difference.TotalMinutes <= 15;
         }
-
     }
 }

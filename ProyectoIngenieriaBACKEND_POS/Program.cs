@@ -17,6 +17,7 @@ builder.Services.AddOpenApi();
 //ESPACIOS PARA AGREGAR SERVICIOS
 builder.Services.AddScoped<ISmsReceiverService, SmsReceiverService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
+builder.Services.AddScoped<IAuditFileService, AuditFileService>();  // RF-12: escritura en disco
 builder.Services.AddScoped<IAuditLogService, AuditLogService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IPhoneConnectionService, PhoneConnectionService>();
